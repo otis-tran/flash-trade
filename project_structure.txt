@@ -1,0 +1,80 @@
+.
+|-- app
+|   |               `-- build.gradle.kts
+|   |               `-- proguard-rules.pro
+|                   `-- src
+|       |           `-- androidTest
+|       |           `-- java
+|       |           `-- com
+|       |           `-- otistran
+|       |               `-- flash_trade
+|       |                   `-- ExampleInstrumentedTest.kt
+|       |-- main
+|       |   |-- AndroidManifest.xml
+|       |   |-- java
+|       |   |   `-- com
+|       |   |       `-- otistran
+|       |   |           `-- flash_trade
+|       |   |               |-- MainActivity.kt
+|       |   |               `-- ui
+|       |   |                   `-- theme
+|       |   |                       |-- Color.kt
+|       |   |                       |-- Theme.kt
+|       |   |                       `-- Type.kt
+|       |   `-- res
+|       |       |-- drawable
+|       |       |   |-- ic_launcher_background.xml
+|       |       |   `-- ic_launcher_foreground.xml
+|       |       |-- mipmap-anydpi-v26
+|       |       |   |-- ic_launcher.xml
+|       |       |   `-- ic_launcher_round.xml
+|       |       |-- mipmap-hdpi
+|       |       |   |-- ic_launcher.webp
+|       |       |   `-- ic_launcher_round.webp
+|       |       |-- mipmap-mdpi
+|       |       |   |-- ic_launcher.webp
+|       |       |   `-- ic_launcher_round.webp
+|       |       |-- mipmap-xhdpi
+|       |       |   |-- ic_launcher.webp
+|       |       |   `-- ic_launcher_round.webp
+|       |       |-- mipmap-xxhdpi
+|       |       |   |-- ic_launcher.webp
+|       |       |   `-- ic_launcher_round.webp
+|       |       |-- mipmap-xxxhdpi
+|       |       |   |-- ic_launcher.webp
+|       |       |   `-- ic_launcher_round.webp
+|       |       |-- values
+|       |       |   |-- colors.xml
+|       |       |   |-- strings.xml
+|       |       |   `-- themes.xml
+|       |       `-- xml
+|       |           |-- backup_rules.xml
+|       |           `-- data_extraction_rules.xml
+|       `-- test
+|           `-- java
+|               `-- com
+|                   `-- otistran
+|                       `-- flash_trade
+|                           `-- ExampleUnitTest.kt
+|-- benchmark
+|   |-- measure_startup.bat
+|   |-- startup_results_20251210_231725.txt
+|   |-- startup_results_20251210_233141.txt
+|   |-- startup_results_20251210_234856.txt
+|   `-- startup_results_20251211_000329.txt
+|-- build.gradle.kts
+|-- documents
+|   |-- CHALLENGE.md
+|   `-- IDEA_CHALLENGE.md
+|-- gradle
+|   |-- libs.versions.toml
+|   `-- wrapper
+|       `-- gradle-wrapper.properties
+|-- gradle.properties
+|-- gradlew
+|-- gradlew.bat
+|-- local.properties
+|-- project_structure.txt
+`-- settings.gradle.kts
+
+33 directories, 44 files
