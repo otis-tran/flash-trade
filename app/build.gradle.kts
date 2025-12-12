@@ -158,6 +158,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     // Testing
-    testImplementation(libs.junit)
-    testImplementation(libs.kotlinx.coroutines.test)
+//    testImplementation(libs.junit)
+//    testImplementation(libs.kotlinx.coroutines.test)
 }
