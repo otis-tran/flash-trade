@@ -6,7 +6,7 @@
 **Language:** Kotlin 2.2.21
 **UI Framework:** Jetpack Compose
 **Build System:** Gradle 8.13 + AGP 8.11.2
-**Completion:** ~15% (Core Utils & Base MVI complete)
+**Completion:** ~25% (Core Utils, Base MVI, Domain Layer complete)
 
 ## Project Structure
 
@@ -19,6 +19,18 @@ flash-trade/
 │   │   │   │   ├── MainActivity.kt              # Main entry point
 │   │   │   │   ├── util/
 │   │   │   │   │   └── Result.kt                # Result wrapper (Success/Error/Loading)
+│   │   │   │   ├── domain/
+│   │   │   │   │   ├── model/                   # Domain entities
+│   │   │   │   │   │   ├── Token.kt             # Token entity
+│   │   │   │   │   │   ├── Trade.kt             # Trade entity + TradeStatus enum
+│   │   │   │   │   │   ├── Wallet.kt            # Wallet entity
+│   │   │   │   │   │   └── User.kt              # User entity
+│   │   │   │   │   ├── repository/              # Repository interfaces
+│   │   │   │   │   │   ├── TradeRepository.kt   # Trade operations
+│   │   │   │   │   │   ├── WalletRepository.kt  # Wallet operations
+│   │   │   │   │   │   └── UserRepository.kt    # User operations
+│   │   │   │   │   └── usecase/                 # Use case base interfaces
+│   │   │   │   │       └── UseCase.kt           # UseCase, NoParamsUseCase, FlowUseCase
 │   │   │   │   ├── presentation/
 │   │   │   │   │   └── base/                    # MVI base classes
 │   │   │   │   │       ├── MviIntent.kt         # Intent marker interface
@@ -50,6 +62,7 @@ flash-trade/
 Root package for all application code. Currently contains:
 - `MainActivity.kt` - Single activity architecture entry point
 - `util/` - Core utilities (Result wrapper)
+- `domain/` - Domain layer (models, repositories, use cases)
 - `presentation/base/` - MVI foundation (Intent, State, SideEffect, Container)
 - `ui/theme/` - Compose theming system
 
@@ -65,7 +78,7 @@ Implementation plans and reports for feature development.
 
 ## Current Implementation Status
 
-### ✅ Completed (15%)
+### ✅ Completed (25%)
 
 #### Project Setup
 - Gradle 8.13 + AGP 8.11.2 configured
@@ -102,16 +115,23 @@ Implementation plans and reports for feature development.
 - Material3 theme (Color, Typography, Theme)
 - Single activity architecture skeleton
 
+#### Domain Layer (Phase 02)
+- **Models:** Token, Trade (TradeStatus enum), Wallet, User entities
+- **Repositories:** TradeRepository, WalletRepository, UserRepository interfaces
+- **Use Cases:** UseCase, NoParamsUseCase, FlowUseCase base interfaces
+- All domain entities follow clean architecture principles
+- Repository interfaces use Result<T> wrapper and Flow for reactive data
+
 ### 🚧 In Progress (0%)
 Nothing currently in progress.
 
-### ⏳ Planned (85%)
+### ⏳ Planned (75%)
 
 #### Architecture Layer (Week 1)
-- Domain layer (use cases, entities, repositories)
 - Data layer (repositories impl, data sources, DTOs)
+- Concrete use case implementations
 - Presentation layer features (ViewModels extending MviContainer, UI states)
-- Dependency injection modules
+- Dependency injection modules (Hilt)
 
 #### Core Features (Week 2)
 - Privy wallet integration
@@ -187,6 +207,11 @@ Defines light/dark themes, dynamic color support, and theme composition.
 ┌────────────▼────────────────────────┐
 │        Domain Layer                 │
 │  (Use Cases, Entities, Repositories)│
+│  ✅ Models: Token, Trade, Wallet,   │
+│     User                            │
+│  ✅ Repositories: Trade, Wallet,    │
+│     User interfaces                 │
+│  ✅ UseCase base interfaces          │
 │  ✅ Result<T> wrapper                │
 └────────────┬────────────────────────┘
              │
@@ -217,6 +242,18 @@ com.otistran.flash_trade/
 ├── MainActivity.kt
 ├── util/
 │   └── Result.kt                      # ✅ Result wrapper
+├── domain/                            # ✅ Domain layer
+│   ├── model/
+│   │   ├── Token.kt                   # Token entity
+│   │   ├── Trade.kt                   # Trade entity + TradeStatus
+│   │   ├── Wallet.kt                  # Wallet entity
+│   │   └── User.kt                    # User entity
+│   ├── repository/
+│   │   ├── TradeRepository.kt         # Trade operations interface
+│   │   ├── WalletRepository.kt        # Wallet operations interface
+│   │   └── UserRepository.kt          # User operations interface
+│   └── usecase/
+│       └── UseCase.kt                 # Base use case interfaces
 ├── presentation/
 │   └── base/                          # ✅ MVI foundation
 │       ├── MviIntent.kt
@@ -237,10 +274,10 @@ com.otistran.flash_trade/
 ├── FlashTradeApplication.kt          # Application class
 ├── MainActivity.kt                    # Main activity
 │
-├── domain/                            # Business logic
-│   ├── model/                         # Domain entities
-│   ├── repository/                    # Repository interfaces
-│   └── usecase/                       # Use cases
+├── domain/                            # ✅ Business logic
+│   ├── model/                         # ✅ Domain entities (Token, Trade, Wallet, User)
+│   ├── repository/                    # ✅ Repository interfaces (Trade, Wallet, User)
+│   └── usecase/                       # ✅ Use case base interfaces
 │
 ├── data/                              # Data layer
 │   ├── remote/                        # API clients
@@ -341,6 +378,14 @@ Centralized dependency management with version catalog. Key versions:
 | `presentation/base/MviIntent.kt` | Intent marker interface | ✅ Complete |
 | `presentation/base/MviState.kt` | State marker interface | ✅ Complete |
 | `presentation/base/MviSideEffect.kt` | Side effect marker interface | ✅ Complete |
+| `domain/model/Token.kt` | Token domain entity | ✅ Complete |
+| `domain/model/Trade.kt` | Trade entity + TradeStatus enum | ✅ Complete |
+| `domain/model/Wallet.kt` | Wallet domain entity | ✅ Complete |
+| `domain/model/User.kt` | User domain entity | ✅ Complete |
+| `domain/repository/TradeRepository.kt` | Trade operations interface | ✅ Complete |
+| `domain/repository/WalletRepository.kt` | Wallet operations interface | ✅ Complete |
+| `domain/repository/UserRepository.kt` | User operations interface | ✅ Complete |
+| `domain/usecase/UseCase.kt` | Base use case interfaces | ✅ Complete |
 | `FlashTradeApplication.kt` | Application class for Hilt | ⏳ Planned |
 | `build.gradle.kts` | Build configuration | ✅ Complete |
 | `libs.versions.toml` | Dependency versions | ✅ Complete |
@@ -351,10 +396,11 @@ Centralized dependency management with version catalog. Key versions:
 
 ### Current Phase: Foundation (Week 1)
 1. ✅ MVI base classes (Result, MviContainer, etc.)
-2. ⏳ Dependency injection setup (Hilt modules)
-3. ⏳ Navigation graph structure
-4. ⏳ Domain/Data layer scaffolding
-5. ⏳ Privy integration
+2. ✅ Domain layer (models, repository interfaces, use case bases)
+3. ⏳ Dependency injection setup (Hilt modules)
+4. ⏳ Navigation graph structure
+5. ⏳ Data layer implementation (repositories, API clients, database)
+6. ⏳ Privy integration
 
 ### Next Phase: Core Features (Week 2)
 1. Kyber API integration
@@ -386,8 +432,8 @@ Centralized dependency management with version catalog. Key versions:
 ## Next Steps
 
 1. ✅ MVI foundation (Result wrapper, MviContainer base)
-2. Set up Hilt dependency injection modules
-3. Create domain layer entities and repository interfaces
+2. ✅ Domain layer (entities, repository interfaces, use case bases)
+3. Set up Hilt dependency injection modules
 4. Implement data layer with Kyber API client
 5. Create navigation graph and feature screens
 6. Integrate Privy SDK for wallet management
