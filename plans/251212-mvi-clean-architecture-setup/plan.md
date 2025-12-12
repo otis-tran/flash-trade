@@ -16,8 +16,8 @@ Setup foundational architecture layers for Flash Trade Android app following MVI
 
 | Phase | Name | Status | Files | Priority |
 |-------|------|--------|-------|----------|
-| 01 | Core Utils & Base MVI | Pending | 5 | High |
-| 02 | Domain Layer | Pending | 8 | High |
+| 01 | Core Utils & Base MVI | Complete | 5 | High |
+| 02 | Domain Layer | Complete | 8 | High |
 | 03 | Data Layer - Local | Pending | 6 | High |
 | 04 | Data Layer - Remote | Pending | 4 | Medium |
 | 05 | DI Modules | Pending | 4 | High |
