@@ -156,4 +156,8 @@ dependencies {
 
     // Debug only - won't be in release APK
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    // Testing
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

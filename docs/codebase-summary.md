@@ -6,7 +6,7 @@
 **Language:** Kotlin 2.2.21
 **UI Framework:** Jetpack Compose
 **Build System:** Gradle 8.13 + AGP 8.11.2
-**Completion:** ~10% (Foundation phase)
+**Completion:** ~15% (Core Utils & Base MVI complete)
 
 ## Project Structure
 
@@ -17,6 +17,14 @@ flash-trade/
 │   │   ├── main/
 │   │   │   ├── java/com/otistran/flash_trade/
 │   │   │   │   ├── MainActivity.kt              # Main entry point
+│   │   │   │   ├── util/
+│   │   │   │   │   └── Result.kt                # Result wrapper (Success/Error/Loading)
+│   │   │   │   ├── presentation/
+│   │   │   │   │   └── base/                    # MVI base classes
+│   │   │   │   │       ├── MviIntent.kt         # Intent marker interface
+│   │   │   │   │       ├── MviState.kt          # State marker interface
+│   │   │   │   │       ├── MviSideEffect.kt     # Side effect marker interface
+│   │   │   │   │       └── MviContainer.kt      # Base ViewModel for MVI
 │   │   │   │   └── ui/
 │   │   │   │       └── theme/                   # Compose theme setup
 │   │   │   │           ├── Color.kt             # Color palette
@@ -41,6 +49,8 @@ flash-trade/
 ### `/app/src/main/java/com/otistran/flash_trade/`
 Root package for all application code. Currently contains:
 - `MainActivity.kt` - Single activity architecture entry point
+- `util/` - Core utilities (Result wrapper)
+- `presentation/base/` - MVI foundation (Intent, State, SideEffect, Container)
 - `ui/theme/` - Compose theming system
 
 ### `/docs/`
@@ -55,7 +65,7 @@ Implementation plans and reports for feature development.
 
 ## Current Implementation Status
 
-### ✅ Completed (10%)
+### ✅ Completed (15%)
 
 #### Project Setup
 - Gradle 8.13 + AGP 8.11.2 configured
@@ -64,15 +74,28 @@ Implementation plans and reports for feature development.
 - Version catalog (libs.versions.toml)
 
 #### Dependencies Configured
-- **UI:** Jetpack Compose 1.8.4 + Material3 1.4.0
+- **UI:** Jetpack Compose 1.10.0 + Material3 1.4.0
 - **DI:** Hilt 2.57.2
-- **Networking:** Retrofit 3.0.0 + Moshi 1.16.0
+- **Networking:** Retrofit 3.0.0 + Moshi 1.15.2
 - **Database:** Room 2.8.4 + DataStore 1.2.0
 - **Web3:** Ethers.kt 1.5.1 + Privy 0.8.0
-- **Background:** WorkManager 3.0.1
-- **QR:** ZXing 4.3.0
-- **Security:** Biometric 1.2.0
-- **Testing:** JUnit 4.13.2, Espresso 3.6.1, MockK
+- **Background:** WorkManager 2.11.0
+- **QR:** ZXing 3.5.4
+- **Security:** Biometric 1.4.0-alpha04
+- **Testing:** JUnit 4.13.2, Coroutines Test 1.10.2
+
+#### Core Utilities (Phase 01)
+- `Result.kt` - Type-safe result wrapper with Success/Error/Loading states
+- Extension functions: `map()`, `onSuccess()`, `onError()`
+
+#### MVI Foundation (Phase 01)
+- `MviIntent` - Marker interface for user intents
+- `MviState` - Marker interface for UI states
+- `MviSideEffect` - Marker interface for one-time events
+- `MviContainer` - Base ViewModel with StateFlow + Channel
+  - Unidirectional data flow
+  - State management via `reduce()`
+  - Side effect emission via `emitSideEffect()`
 
 #### Basic UI
 - MainActivity with Compose setup
@@ -82,12 +105,12 @@ Implementation plans and reports for feature development.
 ### 🚧 In Progress (0%)
 Nothing currently in progress.
 
-### ⏳ Planned (90%)
+### ⏳ Planned (85%)
 
 #### Architecture Layer (Week 1)
 - Domain layer (use cases, entities, repositories)
 - Data layer (repositories impl, data sources, DTOs)
-- Presentation layer (ViewModels, UI states)
+- Presentation layer features (ViewModels extending MviContainer, UI states)
 - Dependency injection modules
 
 #### Core Features (Week 2)
@@ -122,6 +145,24 @@ Dependencies: Jetpack Compose, Material3
 
 Single activity that hosts the entire Compose UI hierarchy. Uses `setContent` to launch the app theme and navigation graph.
 
+### `util/Result.kt`
+```kotlin
+Location: app/src/main/java/com/otistran/flash_trade/util/Result.kt
+Purpose: Type-safe result wrapper for domain operations
+Dependencies: None (pure Kotlin)
+```
+
+Sealed class hierarchy for Success/Error/Loading states with helper methods and extension functions.
+
+### `presentation/base/MviContainer.kt`
+```kotlin
+Location: app/src/main/java/com/otistran/flash_trade/presentation/base/MviContainer.kt
+Purpose: Base ViewModel for MVI pattern implementation
+Dependencies: AndroidX ViewModel, Coroutines
+```
+
+Abstract base class for feature ViewModels. Manages StateFlow for UI state and Channel for side effects.
+
 ### `ui/theme/Theme.kt`
 ```kotlin
 Location: app/src/main/java/com/otistran/flash_trade/ui/theme/Theme.kt
@@ -133,28 +174,32 @@ Defines light/dark themes, dynamic color support, and theme composition.
 
 ## Architecture Overview
 
-### Planned Architecture: MVI + Clean Architecture
+### Architecture: MVI + Clean Architecture (In Progress)
 
 ```
 ┌─────────────────────────────────────┐
 │      Presentation Layer             │
 │  (Composables, Intents, States)     │
+│  ✅ MviContainer, MviIntent,        │
+│     MviState, MviSideEffect         │
 └────────────┬────────────────────────┘
              │
 ┌────────────▼────────────────────────┐
 │        Domain Layer                 │
 │  (Use Cases, Entities, Repositories)│
+│  ✅ Result<T> wrapper                │
 └────────────┬────────────────────────┘
              │
 ┌────────────▼────────────────────────┐
 │         Data Layer                  │
 │  (Repositories, APIs, Database)     │
+│  ⏳ Planned                          │
 └─────────────────────────────────────┘
 ```
 
 **Layers:**
-- **Presentation:** UI (Compose) + Intents + States (unidirectional data flow)
-- **Domain:** Business logic, use cases, domain entities
+- **Presentation:** UI (Compose) + MviContainer base + unidirectional data flow
+- **Domain:** Business logic, use cases, domain entities wrapped in Result<T>
 - **Data:** API clients, database, repositories implementation
 
 ### Technical Stack
@@ -170,6 +215,14 @@ Defines light/dark themes, dynamic color support, and theme composition.
 ```
 com.otistran.flash_trade/
 ├── MainActivity.kt
+├── util/
+│   └── Result.kt                      # ✅ Result wrapper
+├── presentation/
+│   └── base/                          # ✅ MVI foundation
+│       ├── MviIntent.kt
+│       ├── MviState.kt
+│       ├── MviSideEffect.kt
+│       └── MviContainer.kt
 └── ui/
     └── theme/
         ├── Color.kt
@@ -205,10 +258,11 @@ com.otistran.flash_trade/
 │   └── DatabaseModule.kt
 │
 ├── presentation/                      # UI layer (MVI)
-│   ├── onboarding/                    # Onboarding (Screen, Intent, State, Reducer)
-│   ├── trading/                       # Trading (Screen, Intent, State, Reducer)
-│   ├── portfolio/                     # Portfolio (Screen, Intent, State, Reducer)
-│   ├── settings/                      # Settings (Screen, Intent, State, Reducer)
+│   ├── base/                          # ✅ MVI foundation (MviContainer, etc.)
+│   ├── onboarding/                    # Onboarding feature
+│   ├── trading/                       # Trading feature
+│   ├── portfolio/                     # Portfolio feature
+│   ├── settings/                      # Settings feature
 │   ├── navigation/                    # Navigation graph
 │   └── common/                        # Shared UI components
 │
@@ -216,6 +270,7 @@ com.otistran.flash_trade/
 │   └── theme/                         # Theming
 │
 └── util/                              # Utilities
+    ├── Result.kt                      # ✅ Result wrapper
     ├── extension/                     # Extension functions
     └── constants/                     # Constants
 ```
@@ -256,10 +311,7 @@ Centralized dependency management with version catalog. Key versions:
 
 ### Test Dependencies
 - JUnit 4.13.2
-- MockK (mocking)
-- Turbine (Flow testing)
-- Compose Testing
-- Espresso 3.6.1
+- Coroutines Test 1.10.2 (Flow/StateFlow testing)
 
 ## External Integrations
 
@@ -284,6 +336,11 @@ Centralized dependency management with version catalog. Key versions:
 | File | Purpose | Status |
 |------|---------|--------|
 | `MainActivity.kt` | App entry point | ✅ Basic setup |
+| `util/Result.kt` | Result wrapper (Success/Error/Loading) | ✅ Complete |
+| `presentation/base/MviContainer.kt` | Base ViewModel for MVI | ✅ Complete |
+| `presentation/base/MviIntent.kt` | Intent marker interface | ✅ Complete |
+| `presentation/base/MviState.kt` | State marker interface | ✅ Complete |
+| `presentation/base/MviSideEffect.kt` | Side effect marker interface | ✅ Complete |
 | `FlashTradeApplication.kt` | Application class for Hilt | ⏳ Planned |
 | `build.gradle.kts` | Build configuration | ✅ Complete |
 | `libs.versions.toml` | Dependency versions | ✅ Complete |
@@ -293,11 +350,11 @@ Centralized dependency management with version catalog. Key versions:
 ## Development Workflow
 
 ### Current Phase: Foundation (Week 1)
-1. Architecture layer implementation
-2. Dependency injection setup
-3. Navigation graph structure
-4. Basic UI scaffolding
-5. Privy integration
+1. ✅ MVI base classes (Result, MviContainer, etc.)
+2. ⏳ Dependency injection setup (Hilt modules)
+3. ⏳ Navigation graph structure
+4. ⏳ Domain/Data layer scaffolding
+5. ⏳ Privy integration
 
 ### Next Phase: Core Features (Week 2)
 1. Kyber API integration
@@ -328,12 +385,13 @@ Centralized dependency management with version catalog. Key versions:
 
 ## Next Steps
 
-1. Implement Clean Architecture layers
-2. Set up Hilt dependency injection
-3. Create navigation graph
-4. Integrate Privy SDK
-5. Build Kyber API client
-6. Implement core trading flow
+1. ✅ MVI foundation (Result wrapper, MviContainer base)
+2. Set up Hilt dependency injection modules
+3. Create domain layer entities and repository interfaces
+4. Implement data layer with Kyber API client
+5. Create navigation graph and feature screens
+6. Integrate Privy SDK for wallet management
+7. Implement core trading flow
 
 ## Resources
 

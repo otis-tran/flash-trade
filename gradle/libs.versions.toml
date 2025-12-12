@@ -43,6 +43,10 @@ zxingCore = "3.5.4"  # ZXing core
 privyCore = "0.8.0"
 ethers = "1.5.1"
 
+# Testing
+junit = "4.13.2"
+coroutinesTest = "1.10.2"
+
 [libraries]
 # Core Android
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -102,6 +106,10 @@ ethers-signers = { group = "io.kriptal.ethers", name = "ethers-signers" }
 
 # Debug only
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling", version.ref = "composeUi" }
+
+# Testing
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
