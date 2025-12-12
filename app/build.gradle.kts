@@ -110,6 +110,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)    // @Preview
     implementation(libs.androidx.compose.foundation)            // LazyColumn, LazyRow
     implementation(libs.androidx.compose.material3)             // Material3 components
+    implementation(libs.androidx.navigation.compose)            // Navigation
 
     // Dependency Injection
     implementation(libs.hilt.android)
