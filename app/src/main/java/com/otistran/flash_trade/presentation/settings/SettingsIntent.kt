@@ -1,5 +1,6 @@
 package com.otistran.flash_trade.presentation.settings
 
+import androidx.compose.runtime.Immutable
 import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.model.ThemeMode
 import com.otistran.flash_trade.presentation.base.MviIntent
@@ -7,6 +8,7 @@ import com.otistran.flash_trade.presentation.base.MviIntent
 /**
  * User intents for settings screen.
  */
+@Immutable
 sealed class SettingsIntent : MviIntent {
     /** User toggled network mode switch. */
     data class ToggleNetworkMode(val newMode: NetworkMode) : SettingsIntent()

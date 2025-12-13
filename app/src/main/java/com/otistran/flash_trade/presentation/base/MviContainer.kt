@@ -20,7 +20,7 @@ abstract class MviContainer<S : MviState, I : MviIntent, E : MviSideEffect>(
     private val _state = MutableStateFlow(initialState)
     val state: StateFlow<S> = _state.asStateFlow()
 
-    private val _sideEffect = Channel<E>(Channel.BUFFERED)
+    private val _sideEffect = Channel<E>(capacity = Channel.CONFLATED)
     val sideEffect = _sideEffect.receiveAsFlow()
 
     protected val currentState: S get() = _state.value

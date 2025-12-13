@@ -1,10 +1,12 @@
 package com.otistran.flash_trade.presentation.auth
 
+import androidx.compose.runtime.Immutable
 import com.otistran.flash_trade.presentation.base.MviIntent
 
 /**
  * User intents for login screen.
  */
+@Immutable
 sealed class LoginIntent : MviIntent {
     /** User tapped "Continue with Passkey" for login. */
     data object PasskeyLogin : LoginIntent()

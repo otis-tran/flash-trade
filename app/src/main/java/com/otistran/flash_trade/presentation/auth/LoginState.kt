@@ -1,11 +1,13 @@
 package com.otistran.flash_trade.presentation.auth
 
+import androidx.compose.runtime.Stable
 import com.otistran.flash_trade.domain.model.User
 import com.otistran.flash_trade.presentation.base.MviState
 
 /**
  * UI state for login screen.
  */
+@Stable
 data class LoginState(
     val isPasskeyLoading: Boolean = false,
     val isGoogleLoading: Boolean = false,
