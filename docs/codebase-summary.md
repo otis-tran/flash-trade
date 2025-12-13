@@ -38,9 +38,9 @@ flash-trade/
 │   │   │   │   │       ├── MviSideEffect.kt     # Side effect marker interface
 │   │   │   │   │       └── MviContainer.kt      # Base ViewModel for MVI
 │   │   │   │   └── ui/
-│   │   │   │       └── theme/                   # Compose theme setup
-│   │   │   │           ├── Color.kt             # Color palette
-│   │   │   │           ├── Theme.kt             # Theme configuration
+│   │   │   │       └── theme/                   # Compose theme setup (Kyber brand)
+│   │   │   │           ├── Color.kt             # Kyber color palette
+│   │   │   │           ├── Theme.kt             # Material3 color schemes
 │   │   │   │           └── Type.kt              # Typography
 │   │   │   ├── res/                             # Resources
 │   │   │   └── AndroidManifest.xml              # App manifest
@@ -110,9 +110,13 @@ Implementation plans and reports for feature development.
   - State management via `reduce()`
   - Side effect emission via `emitSideEffect()`
 
-#### Basic UI
+#### UI Theme (Kyber Brand)
 - MainActivity with Compose setup
-- Material3 theme (Color, Typography, Theme)
+- **Kyber Brand Colors:** Primary (KyberTeal #31CB9E), Secondary (KyberNavy #141927), Accents (Purple/Blue/Gold)
+- **Material3 Color Schemes:** Dark mode (primary) + Light mode (fallback)
+- **Semantic Colors:** Success, Error, Warning, Info with containers
+- **Status Bar Theming:** Auto-matches background color
+- Typography system configured
 - Single activity architecture skeleton
 
 #### Domain Layer (Phase 02)
@@ -186,11 +190,11 @@ Abstract base class for feature ViewModels. Manages StateFlow for UI state and C
 ### `ui/theme/Theme.kt`
 ```kotlin
 Location: app/src/main/java/com/otistran/flash_trade/ui/theme/Theme.kt
-Purpose: Material3 theming for the app
+Purpose: Material3 theming with Kyber brand colors
 Dependencies: Material3, Compose
 ```
 
-Defines light/dark themes, dynamic color support, and theme composition.
+Implements Kyber brand identity with dark/light color schemes. Dark mode uses KyberNavy (#141927) background with KyberTeal (#31CB9E) primary. Status bar auto-matches theme background.
 
 ## Architecture Overview
 
@@ -261,10 +265,10 @@ com.otistran.flash_trade/
 │       ├── MviSideEffect.kt
 │       └── MviContainer.kt
 └── ui/
-    └── theme/
-        ├── Color.kt
-        ├── Theme.kt
-        └── Type.kt
+    └── theme/                         # ✅ Kyber brand theming
+        ├── Color.kt                   # Kyber color palette
+        ├── Theme.kt                   # Material3 schemes
+        └── Type.kt                    # Typography
 ```
 
 ### Target Package Structure
@@ -304,7 +308,7 @@ com.otistran.flash_trade/
 │   └── common/                        # Shared UI components
 │
 ├── ui/
-│   └── theme/                         # Theming
+│   └── theme/                         # ✅ Kyber brand theming
 │
 └── util/                              # Utilities
     ├── Result.kt                      # ✅ Result wrapper

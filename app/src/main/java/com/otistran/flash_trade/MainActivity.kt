@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import com.otistran.flash_trade.presentation.navigation.FlashTradeNavGraph
-import com.otistran.flash_trade.ui.theme.FlashtradeTheme
+import com.otistran.flash_trade.ui.theme.FlashTradeTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -18,7 +18,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            FlashtradeTheme {
+            FlashTradeTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     FlashTradeNavGraph(
                         modifier = Modifier.padding(innerPadding)
