@@ -23,6 +23,6 @@ sealed class Screen(val route: String) {
 
     companion object {
         // Start destination
-        val START = Welcome
+        val START = Login
     }
 }

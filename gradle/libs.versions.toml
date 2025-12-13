@@ -47,6 +47,9 @@ zxingCore = "3.5.4"  # ZXing core
 privyCore = "0.8.0"
 ethers = "1.5.1"
 
+# Credentials API for passkey
+credentials = "1.6.0-beta03"
+
 # Testing
 #junit = "4.13.2"
 #coroutinesTest = "1.10.2"
@@ -111,6 +114,10 @@ ethers-abi = { group = "io.kriptal.ethers", name = "ethers-abi" }
 ethers-core = { group = "io.kriptal.ethers", name = "ethers-core" }
 ethers-providers = { group = "io.kriptal.ethers", name = "ethers-providers" }
 ethers-signers = { group = "io.kriptal.ethers", name = "ethers-signers" }
+
+# Credentials API for passkey
+androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "credentials" }
+androidx-credentials-play-services-auth = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
 
 # Debug only
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling", version.ref = "composeUi" }

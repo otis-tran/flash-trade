@@ -1,7 +1,7 @@
 # Privy Login Screen Implementation Plan
 
 **Date:** 2025-12-12
-**Status:** 🟡 Planning
+**Status:** ✅ Implemented
 **Branch:** `feature/login-via-privy`
 **Priority:** P0 (Critical - Blocking)
 
@@ -55,7 +55,7 @@ User Tap → LoginIntent.PasskeyLogin → LoginViewModel
 
 ### Phase 01: Configuration
 **File:** [phase-01-configuration.md](./phase-01-configuration.md)
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 **Dependencies:** None
 
 Configure AndroidManifest, Privy Dashboard, Digital Asset Links, and app signing.
@@ -71,7 +71,7 @@ Configure AndroidManifest, Privy Dashboard, Digital Asset Links, and app signing
 
 ### Phase 02: Domain Layer
 **File:** [phase-02-domain-layer.md](./phase-02-domain-layer.md)
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 **Dependencies:** Phase 01
 
 Define authentication contracts and business logic.
@@ -88,7 +88,7 @@ Define authentication contracts and business logic.
 
 ### Phase 03: Data Layer
 **File:** [phase-03-data-layer.md](./phase-03-data-layer.md)
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 **Dependencies:** Phase 02
 
 Implement Privy SDK integration and repository.
@@ -105,7 +105,7 @@ Implement Privy SDK integration and repository.
 
 ### Phase 04: Presentation Layer
 **File:** [phase-04-presentation-layer.md](./phase-04-presentation-layer.md)
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 **Dependencies:** Phase 03
 
 Build MVI components and UI.
@@ -275,6 +275,23 @@ implementation("androidx.credentials:credentials-play-services-auth:1.6.0-beta03
 
 ---
 
-**Plan Status:** Ready for implementation
+**Plan Status:** ✅ Implemented (2025-12-13)
 **Estimated Effort:** 4-6 hours (experienced dev)
 **Blocking Issues:** None
+
+---
+
+## Implementation Notes (2025-12-13)
+
+**Files Created:** 12 files across domain/data/presentation layers
+**Files Modified:** NavGraph.kt, build.gradle.kts
+
+**Code Review Fixes Applied:**
+- Moved hardcoded config to BuildConfig (PRIVY_RELYING_PARTY, PRIVY_OAUTH_SCHEME)
+- Added URL validation in LoginUseCase
+
+**Known Issues:**
+- KSP 2.2.21-x not yet released; using 2.2.10-2.0.2 (compatible)
+- `awaitReady()` deprecated warning (non-blocking)
+
+**Report:** [251213-code-reviewer-privy-auth-review.md](./reports/../../../plans/reports/251213-code-reviewer-privy-auth-review.md)
