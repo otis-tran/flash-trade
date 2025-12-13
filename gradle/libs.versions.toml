@@ -13,7 +13,7 @@ activityCompose = "1.12.1"
 composeUi = "1.10.0"
 composeFoundation = "1.10.0"
 composeMaterial3 = "1.4.0"
-navigationCompose = "2.9.0"
+navigationCompose = "2.9.6"
 
 # hilt
 hilt = "2.57.2"
@@ -35,6 +35,9 @@ androidxDatastorePreferences = "1.2.0"
 
 # Biometric
 androidxBiometric = "1.4.0-alpha04"
+
+# Splash Screen
+splashscreen = "1.2.0"
 
 # Database
 room = "2.8.4"
@@ -89,6 +92,9 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 
 # Biometric
 androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "androidxBiometric" }
+
+# Splash Screen
+androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
 
 # Database
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }

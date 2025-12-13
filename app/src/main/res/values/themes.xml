@@ -1,5 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Base application theme (API 28+) -->
+    <style name="Theme.Flashtrade" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="android:colorPrimary">@color/kyber_teal</item>
+        <item name="android:colorPrimaryDark">@color/kyber_teal_dark</item>
+        <item name="android:colorAccent">@color/kyber_purple</item>
 
-    <style name="Theme.Flashtrade" parent="android:Theme.Material.Light.NoActionBar" />
+        <!-- Background colors -->
+        <item name="android:colorBackground">@color/kyber_navy</item>
+        <item name="android:windowBackground">@color/kyber_navy</item>
+
+        <!-- Status bar (API 28-30 fallback) -->
+        <item name="android:statusBarColor">@color/kyber_navy</item>
+        <item name="android:navigationBarColor">@color/kyber_navy</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- Splash screen theme (API 28-30 legacy) -->
+    <style name="Theme.Flashtrade.Splash" parent="Theme.Flashtrade">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:windowDisablePreview">false</item>
+    </style>
 </resources>
