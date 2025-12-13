@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.otistran.flash_trade.presentation.auth.LoginScreen
+import com.otistran.flash_trade.presentation.settings.SettingsScreen
 
 @Composable
 fun FlashTradeNavGraph(
@@ -50,7 +51,16 @@ fun FlashTradeNavGraph(
         }
 
         composable(Screen.Settings.route) {
-            // TODO: SettingsScreen()
+            SettingsScreen(
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
         }
 
         // Details
