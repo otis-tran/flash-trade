@@ -21,18 +21,9 @@ import javax.inject.Singleton
  */
 @Singleton
 class PrivyAuthService @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val privy: Privy
 ) {
-    private val privy: Privy by lazy {
-        Privy.init(
-            context = context,
-            config = PrivyConfig(
-                appId = BuildConfig.PRIVY_APP_ID,
-                appClientId = BuildConfig.PRIVY_APP_CLIENT_ID, // Same for basic setup
-                logLevel = if (BuildConfig.DEBUG) PrivyLogLevel.VERBOSE else PrivyLogLevel.NONE
-            )
-        )
-    }
 
     /**
      * Observe auth state changes.

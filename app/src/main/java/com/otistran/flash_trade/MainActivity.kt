@@ -13,10 +13,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.otistran.flash_trade.data.local.datastore.UserPreferences
+import com.otistran.flash_trade.di.PrivyProvider
 import com.otistran.flash_trade.domain.model.ThemeMode
 import com.otistran.flash_trade.presentation.navigation.FlashTradeNavGraph
 import com.otistran.flash_trade.ui.theme.FlashTradeTheme
 import dagger.hilt.android.AndroidEntryPoint
+import io.privy.logging.PrivyLogLevel
+import io.privy.sdk.Privy
+import io.privy.sdk.PrivyConfig
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -30,6 +34,9 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
 
         super.onCreate(savedInstanceState)
+        // Initialize Privy SDK (MUST be on main thread)
+        val privyInstance = initializePrivy()
+        PrivyProvider.initialize(privyInstance)
         enableEdgeToEdge()
         setContent {
             val themeModeString by userPreferences.themeMode.collectAsState(initial = "DARK")
@@ -47,5 +54,20 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Initialize Privy SDK for OAuth authentication and wallet creation
+     * Uses credentials from BuildConfig (loaded from local.properties)
+     */
+    private fun initializePrivy(): Privy {
+        return Privy.init(
+            context = this,
+            config = PrivyConfig(
+                appId = BuildConfig.PRIVY_APP_ID,
+                appClientId = BuildConfig.PRIVY_APP_CLIENT_ID, // Same for basic setup
+                logLevel = if (BuildConfig.DEBUG) PrivyLogLevel.VERBOSE else PrivyLogLevel.NONE
+            )
+        )
     }
 }
