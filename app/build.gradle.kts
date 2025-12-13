@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -20,6 +22,16 @@ android {
 
         // Vector drawable support
         vectorDrawables.useSupportLibrary = true
+
+        // Load from local.properties
+        val properties = Properties()
+        properties.load(project.rootProject.file("local.properties").inputStream())
+        buildConfigField("String", "PRIVY_APP_ID", "\"${properties.getProperty("PRIVY_APP_ID")}\"")
+        buildConfigField("String", "PRIVY_APP_CLIENT_ID", "\"${properties.getProperty("PRIVY_APP_CLIENT_ID")}\"")
+
+        // Privy auth config
+        buildConfigField("String", "PRIVY_RELYING_PARTY", "\"https://flash-trade-assetlinks.netlify.app\"")
+        buildConfigField("String", "PRIVY_OAUTH_SCHEME", "\"com.otistran.flashtrade.privy\"")
     }
 
     buildTypes {
@@ -35,11 +47,11 @@ android {
             // Faster builds
             isDebuggable = true
 
-            // Speed up debug builds
-            applicationIdSuffix = ".debug"
-
-            // Faster debug builds
-            versionNameSuffix = "-debug"
+//            // Speed up debug builds
+//            applicationIdSuffix = ".debug"
+//
+//            // Faster debug builds
+//            versionNameSuffix = "-debug"
         }
 
         release {
@@ -157,6 +169,10 @@ dependencies {
     implementation(libs.ethers.core)
     implementation(libs.ethers.providers)
     implementation(libs.ethers.signers)
+
+    // Credentials API for passkey
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
 
     // Debug only - won't be in release APK
     debugImplementation(libs.androidx.compose.ui.tooling)

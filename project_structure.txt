@@ -1,11 +1,13 @@
 .
+|-- CLAUDE.md
+|-- README.md
 |-- app
-|   |               `-- build.gradle.kts
-|   |               `-- proguard-rules.pro
-|                   `-- src
-|       |           `-- androidTest
-|       |           `-- java
-|       |           `-- com
+|   |-- build.gradle.kts
+|   |-- proguard-rules.pro
+|   `-- src
+|       |-- androidTest
+|       |   `-- java
+|       |       `-- com
 |       |           `-- otistran
 |       |               `-- flash_trade
 |       |                   `-- ExampleInstrumentedTest.kt
@@ -15,12 +17,71 @@
 |       |   |   `-- com
 |       |   |       `-- otistran
 |       |   |           `-- flash_trade
+|       |   |               |-- FlashTradeApplication.kt
 |       |   |               |-- MainActivity.kt
-|       |   |               `-- ui
-|       |   |                   `-- theme
-|       |   |                       |-- Color.kt
-|       |   |                       |-- Theme.kt
-|       |   |                       `-- Type.kt
+|       |   |               |-- data
+|       |   |               |   |-- local
+|       |   |               |   |   |-- dao
+|       |   |               |   |   |-- database
+|       |   |               |   |   |-- datastore
+|       |   |               |   |   `-- entity
+|       |   |               |   |-- mapper
+|       |   |               |   |   `-- UserMapper.kt
+|       |   |               |   |-- remote
+|       |   |               |   |   |-- api
+|       |   |               |   |   `-- kyber
+|       |   |               |   |-- repository
+|       |   |               |   |   |-- AuthRepositoryImpl.kt
+|       |   |               |   |   |-- TradeRepositoryImpl.kt
+|       |   |               |   |   `-- WalletRepositoryImpl.kt
+|       |   |               |   `-- service
+|       |   |               |       `-- PrivyAuthService.kt
+|       |   |               |-- di
+|       |   |               |   |-- AppModule.kt
+|       |   |               |   |-- AuthModule.kt
+|       |   |               |   |-- DatabaseModule.kt
+|       |   |               |   |-- NetworkModule.kt
+|       |   |               |   `-- RepositoryModule.kt
+|       |   |               |-- domain
+|       |   |               |   |-- model
+|       |   |               |   |   |-- AuthState.kt
+|       |   |               |   |   |-- Token.kt
+|       |   |               |   |   |-- Trade.kt
+|       |   |               |   |   |-- User.kt
+|       |   |               |   |   `-- Wallet.kt
+|       |   |               |   |-- repository
+|       |   |               |   |   |-- AuthRepository.kt
+|       |   |               |   |   |-- TradeRepository.kt
+|       |   |               |   |   |-- UserRepository.kt
+|       |   |               |   |   `-- WalletRepository.kt
+|       |   |               |   `-- usecase
+|       |   |               |       |-- LoginUseCase.kt
+|       |   |               |       `-- UseCase.kt
+|       |   |               |-- presentation
+|       |   |               |   |-- auth
+|       |   |               |   |   |-- LoginIntent.kt
+|       |   |               |   |   |-- LoginScreen.kt
+|       |   |               |   |   |-- LoginSideEffect.kt
+|       |   |               |   |   |-- LoginState.kt
+|       |   |               |   |   `-- LoginViewModel.kt
+|       |   |               |   |-- base
+|       |   |               |   |   |-- MviContainer.kt
+|       |   |               |   |   |-- MviIntent.kt
+|       |   |               |   |   |-- MviSideEffect.kt
+|       |   |               |   |   `-- MviState.kt
+|       |   |               |   |-- common
+|       |   |               |   |   |-- ErrorMessage.kt
+|       |   |               |   |   `-- LoadingIndicator.kt
+|       |   |               |   `-- navigation
+|       |   |               |       |-- NavGraph.kt
+|       |   |               |       `-- Screen.kt
+|       |   |               |-- ui
+|       |   |               |   `-- theme
+|       |   |               |       |-- Color.kt
+|       |   |               |       |-- Theme.kt
+|       |   |               |       `-- Type.kt
+|       |   |               `-- util
+|       |   |                   `-- Result.kt
 |       |   `-- res
 |       |       |-- drawable
 |       |       |   |-- ic_launcher_background.xml
@@ -55,7 +116,10 @@
 |               `-- com
 |                   `-- otistran
 |                       `-- flash_trade
-|                           `-- ExampleUnitTest.kt
+|                           |-- ExampleUnitTest.kt
+|                           |-- presentation
+|                           |   `-- base
+|                           `-- util
 |-- benchmark
 |   |-- measure_startup.bat
 |   |-- startup_results_20251210_231725.txt
@@ -63,6 +127,11 @@
 |   |-- startup_results_20251210_234856.txt
 |   `-- startup_results_20251211_000329.txt
 |-- build.gradle.kts
+|-- docs
+|   |-- code-standards.md
+|   |-- codebase-summary.md
+|   |-- project-overview-pdr.md
+|   `-- system-architecture.md
 |-- documents
 |   |-- CHALLENGE.md
 |   `-- IDEA_CHALLENGE.md
@@ -74,7 +143,49 @@
 |-- gradlew
 |-- gradlew.bat
 |-- local.properties
+|-- plans
+|   |-- 251212-kyber-color-theme
+|   |   |-- phase-01-color-palette.md
+|   |   |-- phase-02-theme-implementation.md
+|   |   |-- plan.md
+|   |   `-- reports
+|   |-- 251212-login-via-privy
+|   |   |-- phase-01-configuration.md
+|   |   |-- phase-02-domain-layer.md
+|   |   |-- phase-03-data-layer.md
+|   |   |-- phase-04-presentation-layer.md
+|   |   |-- plan.md
+|   |   |-- reports
+|   |   |-- research
+|   |   |   |-- researcher-01-privy-passkey.md
+|   |   |   `-- researcher-02-privy-oauth.md
+|   |   `-- scout
+|   |-- 251212-mvi-clean-architecture-setup
+|   |   |-- phase-01-core-utils-base-mvi.md
+|   |   |-- phase-02-domain-layer.md
+|   |   |-- phase-03-data-layer-local.md
+|   |   |-- phase-04-data-layer-remote.md
+|   |   |-- phase-05-di-modules.md
+|   |   |-- phase-06-presentation-base.md
+|   |   |-- plan.md
+|   |   `-- reports
+|   |-- 251213-app-icon-splash-screen-design
+|   |   |-- phase-01-app-icon-design.md
+|   |   |-- phase-02-splash-screen-design.md
+|   |   `-- plan.md
+|   |-- reports
+|   |   |-- 251212-code-reviewer-to-dev-phase01-review.md
+|   |   |-- 251212-docs-manager-initial-documentation-report.md
+|   |   |-- 251212-from-docs-manager-to-orchestrator-phase02-domain-layer-docs-update-report.md
+|   |   |-- 251212-login-via-privy-plan-summary.md
+|   |   |-- 251213-code-reviewer-privy-auth-review.md
+|   |   `-- scout-android-app-structure-251212.md
+|   `-- templates
+|       |-- bug-fix-template.md
+|       |-- feature-implementation-template.md
+|       |-- refactor-template.md
+|       `-- template-usage-guide.md
 |-- project_structure.txt
 `-- settings.gradle.kts
 
-33 directories, 44 files
+72 directories, 116 files

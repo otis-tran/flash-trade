@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.otistran.flash_trade.presentation.auth.LoginScreen
 
 @Composable
 fun FlashTradeNavGraph(
@@ -26,7 +27,17 @@ fun FlashTradeNavGraph(
         }
 
         composable(Screen.Login.route) {
-            // TODO: LoginScreen()
+            LoginScreen(
+                onNavigateToTrading = {
+                    navController.navigate(Screen.Trading.route) {
+                        // Clear back stack - can't go back to login after auth
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                    }
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
         }
 
         // Main
