@@ -122,6 +122,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)    // @Preview
     implementation(libs.androidx.compose.foundation)            // LazyColumn, LazyRow
     implementation(libs.androidx.compose.material3)             // Material3 components
+    implementation(libs.androidx.compose.material.icons.extended) // Material Icons
     implementation(libs.androidx.navigation.compose)            // Navigation
 
     // Dependency Injection
@@ -176,4 +177,8 @@ dependencies {
 
     // Debug only - won't be in release APK
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    // Testing
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

@@ -27,6 +27,8 @@ class UserPreferences @Inject constructor(
         val AUTO_SELL_ENABLED = booleanPreferencesKey("auto_sell_enabled")
         val USER_ID = stringPreferencesKey("user_id")
         val WALLET_ADDRESS = stringPreferencesKey("wallet_address")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
+        val NETWORK_MODE = stringPreferencesKey("network_mode")
     }
 
     val isOnboarded: Flow<Boolean> = context.dataStore.data.map { it[Keys.IS_ONBOARDED] ?: false }
@@ -35,6 +37,8 @@ class UserPreferences @Inject constructor(
     val autoSellEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.AUTO_SELL_ENABLED] ?: true }
     val userId: Flow<String?> = context.dataStore.data.map { it[Keys.USER_ID] }
     val walletAddress: Flow<String?> = context.dataStore.data.map { it[Keys.WALLET_ADDRESS] }
+    val themeMode: Flow<String> = context.dataStore.data.map { it[Keys.THEME_MODE] ?: "DARK" }
+    val networkMode: Flow<String> = context.dataStore.data.map { it[Keys.NETWORK_MODE] ?: "TESTNET" }
 
     suspend fun setOnboarded(value: Boolean) {
         context.dataStore.edit { it[Keys.IS_ONBOARDED] = value }
@@ -58,6 +62,14 @@ class UserPreferences @Inject constructor(
 
     suspend fun setWalletAddress(address: String) {
         context.dataStore.edit { it[Keys.WALLET_ADDRESS] = address }
+    }
+
+    suspend fun setThemeMode(mode: String) {
+        context.dataStore.edit { it[Keys.THEME_MODE] = mode }
+    }
+
+    suspend fun setNetworkMode(mode: String) {
+        context.dataStore.edit { it[Keys.NETWORK_MODE] = mode }
     }
 
     suspend fun clear() {
