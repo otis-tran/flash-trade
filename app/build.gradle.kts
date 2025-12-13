@@ -137,6 +137,9 @@ dependencies {
     // Biometric
     implementation(libs.androidx.biometric)
 
+    // Splash Screen (backward compatible API)
+    implementation(libs.androidx.core.splashscreen)
+
     // Database
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

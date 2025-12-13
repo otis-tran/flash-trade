@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.otistran.flash_trade.presentation.navigation.FlashTradeNavGraph
 import com.otistran.flash_trade.ui.theme.FlashTradeTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -15,6 +16,9 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Install splash screen (handles API 28-36 automatically)
+        installSplashScreen()
+
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
