@@ -32,6 +32,7 @@
 |       |   |               |   |   `-- kyber
 |       |   |               |   |-- repository
 |       |   |               |   |   |-- AuthRepositoryImpl.kt
+|       |   |               |   |   |-- SettingsRepositoryImpl.kt
 |       |   |               |   |   |-- TradeRepositoryImpl.kt
 |       |   |               |   |   `-- WalletRepositoryImpl.kt
 |       |   |               |   `-- service
@@ -41,24 +42,33 @@
 |       |   |               |   |-- AuthModule.kt
 |       |   |               |   |-- DatabaseModule.kt
 |       |   |               |   |-- NetworkModule.kt
-|       |   |               |   `-- RepositoryModule.kt
+|       |   |               |   |-- PrivyModule.kt
+|       |   |               |   |-- PrivyProvider.kt
+|       |   |               |   |-- RepositoryModule.kt
+|       |   |               |   `-- SettingsModule.kt
 |       |   |               |-- domain
 |       |   |               |   |-- model
 |       |   |               |   |   |-- AuthState.kt
+|       |   |               |   |   |-- SettingsModel.kt
 |       |   |               |   |   |-- Token.kt
 |       |   |               |   |   |-- Trade.kt
 |       |   |               |   |   |-- User.kt
+|       |   |               |   |   |-- UserAuthState.kt
 |       |   |               |   |   `-- Wallet.kt
 |       |   |               |   |-- repository
 |       |   |               |   |   |-- AuthRepository.kt
+|       |   |               |   |   |-- SettingsRepository.kt
 |       |   |               |   |   |-- TradeRepository.kt
 |       |   |               |   |   |-- UserRepository.kt
 |       |   |               |   |   `-- WalletRepository.kt
 |       |   |               |   `-- usecase
+|       |   |               |       |-- CheckLoginStatusUseCase.kt
 |       |   |               |       |-- LoginUseCase.kt
+|       |   |               |       |-- LogoutUseCase.kt
 |       |   |               |       `-- UseCase.kt
 |       |   |               |-- presentation
 |       |   |               |   |-- auth
+|       |   |               |   |   |-- AuthCheckViewModel.kt
 |       |   |               |   |   |-- LoginIntent.kt
 |       |   |               |   |   |-- LoginScreen.kt
 |       |   |               |   |   |-- LoginSideEffect.kt
@@ -72,9 +82,19 @@
 |       |   |               |   |-- common
 |       |   |               |   |   |-- ErrorMessage.kt
 |       |   |               |   |   `-- LoadingIndicator.kt
-|       |   |               |   `-- navigation
-|       |   |               |       |-- NavGraph.kt
-|       |   |               |       `-- Screen.kt
+|       |   |               |   |-- navigation
+|       |   |               |   |   |-- AppState.kt
+|       |   |               |   |   |-- BottomNavBar.kt
+|       |   |               |   |   |-- FlashTradeNavGraph.kt
+|       |   |               |   |   |-- Screen.kt
+|       |   |               |   |   `-- TopLevelDestination.kt
+|       |   |               |   `-- settings
+|       |   |               |       |-- SettingsIntent.kt
+|       |   |               |       |-- SettingsScreen.kt
+|       |   |               |       |-- SettingsSideEffect.kt
+|       |   |               |       |-- SettingsState.kt
+|       |   |               |       |-- SettingsViewModel.kt
+|       |   |               |       `-- components
 |       |   |               |-- ui
 |       |   |               |   `-- theme
 |       |   |               |       |-- Color.kt
@@ -85,7 +105,8 @@
 |       |   `-- res
 |       |       |-- drawable
 |       |       |   |-- ic_launcher_background.xml
-|       |       |   `-- ic_launcher_foreground.xml
+|       |       |   |-- ic_launcher_foreground.xml
+|       |       |   `-- splash_background.xml
 |       |       |-- mipmap-anydpi-v26
 |       |       |   |-- ic_launcher.xml
 |       |       |   `-- ic_launcher_round.xml
@@ -107,6 +128,8 @@
 |       |       |-- values
 |       |       |   |-- colors.xml
 |       |       |   |-- strings.xml
+|       |       |   `-- themes.xml
+|       |       |-- values-v31
 |       |       |   `-- themes.xml
 |       |       `-- xml
 |       |           |-- backup_rules.xml
@@ -173,13 +196,43 @@
 |   |   |-- phase-01-app-icon-design.md
 |   |   |-- phase-02-splash-screen-design.md
 |   |   `-- plan.md
+|   |-- 251213-bottom-navigation
+|   |   |-- phase-01-route-restructure.md
+|   |   |-- phase-02-root-scaffold.md
+|   |   |-- phase-03-bottom-nav-component.md
+|   |   |-- phase-04-navigation-implementation.md
+|   |   |-- phase-05-testing-polish.md
+|   |   |-- plan.md
+|   |   |-- reports
+|   |   |   `-- 251214-from-code-reviewer-phase-01-review.md
+|   |   |-- research
+|   |   |   |-- researcher-01-navigation-compose.md
+|   |   |   `-- researcher-02-ui-ux-design.md
+|   |   `-- scout
+|   |-- 251213-settings-screen
+|   |   |-- phase-01-domain-layer.md
+|   |   |-- phase-02-data-layer.md
+|   |   |-- phase-03-presentation-layer.md
+|   |   |-- phase-04-ui-components.md
+|   |   |-- phase-05-navigation-integration.md
+|   |   |-- plan.md
+|   |   `-- reports
+|   |       `-- 251213-planning-report.md
 |   |-- reports
 |   |   |-- 251212-code-reviewer-to-dev-phase01-review.md
 |   |   |-- 251212-docs-manager-initial-documentation-report.md
 |   |   |-- 251212-from-docs-manager-to-orchestrator-phase02-domain-layer-docs-update-report.md
 |   |   |-- 251212-login-via-privy-plan-summary.md
+|   |   |-- 251213-bottom-navigation-plan.md
 |   |   |-- 251213-code-reviewer-privy-auth-review.md
-|   |   `-- scout-android-app-structure-251212.md
+|   |   |-- 251213-code-reviewer-to-orchestrator-settings-screen-review.md
+|   |   |-- 251213-tester-to-orchestrator-settings-test-report.md
+|   |   |-- 251214-code-reviewer-mvi-architecture-review.md
+|   |   |-- 251214-code-reviewer-phase02-bottom-nav-review.md
+|   |   |-- 251214-mvi-architecture-test-report.md
+|   |   |-- mvi-architecture-review.md
+|   |   |-- scout-android-app-structure-251212.md
+|   |   `-- scout-report.md
 |   `-- templates
 |       |-- bug-fix-template.md
 |       |-- feature-implementation-template.md
@@ -188,4 +241,4 @@
 |-- project_structure.txt
 `-- settings.gradle.kts
 
-72 directories, 116 files
+81 directories, 160 files
