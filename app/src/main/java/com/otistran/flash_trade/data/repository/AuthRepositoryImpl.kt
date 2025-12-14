@@ -102,7 +102,7 @@ class AuthRepositoryImpl @Inject constructor(
             result.fold(
                 onSuccess = { privyUser ->
                     val user = privyUser.toUser()
-                    Log.d(TAG, "OAuth login success: ${user.id}")
+                    Log.d(TAG, "OAuth login success: ${user.id}, user: $user")
                     // Save login state to DataStore
                     userPreferences.saveLoginState(user)
                     Result.Success(user)

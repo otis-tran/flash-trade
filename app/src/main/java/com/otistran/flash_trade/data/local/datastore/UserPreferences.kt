@@ -37,6 +37,7 @@ class UserPreferences @Inject constructor(
         val IS_LOGGED_IN = booleanPreferencesKey("is_logged_in")
         val AUTH_TOKEN = stringPreferencesKey("auth_token")
         val USER_EMAIL = stringPreferencesKey("user_email")
+        val DISPLAY_NAME = stringPreferencesKey("display_name")
         val LOGIN_TIMESTAMP = longPreferencesKey("login_timestamp")
     }
 
@@ -56,6 +57,7 @@ class UserPreferences @Inject constructor(
     val isLoggedIn: Flow<Boolean> = context.dataStore.data.map { it[Keys.IS_LOGGED_IN] ?: false }
     val authToken: Flow<String?> = context.dataStore.data.map { it[Keys.AUTH_TOKEN] }
     val userEmail: Flow<String?> = context.dataStore.data.map { it[Keys.USER_EMAIL] }
+    val displayName: Flow<String?> = context.dataStore.data.map { it[Keys.DISPLAY_NAME] }
     val loginTimestamp: Flow<Long> = context.dataStore.data.map { it[Keys.LOGIN_TIMESTAMP] ?: 0L }
 
     // Combined auth state
@@ -65,16 +67,19 @@ class UserPreferences @Inject constructor(
             userId = prefs[Keys.USER_ID],
             token = prefs[Keys.AUTH_TOKEN],
             userEmail = prefs[Keys.USER_EMAIL],
+            displayName = prefs[Keys.DISPLAY_NAME],
+            walletAddress = prefs[Keys.WALLET_ADDRESS],
             loginTimestamp = prefs[Keys.LOGIN_TIMESTAMP] ?: 0L
         )
     }
 
-    // Auth methods - thêm vào
+    // Auth methods
     suspend fun saveLoginState(user: User, token: String? = null) {
         context.dataStore.edit { prefs ->
             prefs[Keys.IS_LOGGED_IN] = true
             prefs[Keys.USER_ID] = user.id
             prefs[Keys.USER_EMAIL] = user.email ?: ""
+            prefs[Keys.DISPLAY_NAME] = user.displayName ?: ""
             prefs[Keys.LOGIN_TIMESTAMP] = System.currentTimeMillis()
 
             token?.let { prefs[Keys.AUTH_TOKEN] = it }
@@ -87,6 +92,7 @@ class UserPreferences @Inject constructor(
             prefs.remove(Keys.IS_LOGGED_IN)
             prefs.remove(Keys.AUTH_TOKEN)
             prefs.remove(Keys.USER_EMAIL)
+            prefs.remove(Keys.DISPLAY_NAME)
             prefs.remove(Keys.LOGIN_TIMESTAMP)
             // Keep USER_ID and WALLET_ADDRESS for potential cache
         }

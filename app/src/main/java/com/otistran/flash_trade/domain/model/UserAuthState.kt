@@ -5,6 +5,8 @@ data class UserAuthState(
     val userId: String? = null,
     val token: String? = null,
     val userEmail: String? = null,
+    val displayName: String? = null,
+    val walletAddress: String? = null,
     val loginTimestamp: Long = 0L
 ) {
     val isSessionValid: Boolean
