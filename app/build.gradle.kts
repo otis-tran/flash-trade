@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.ethers.abigen)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -116,6 +117,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 
     // Compose libs
     implementation(libs.androidx.compose.ui)                    // UI primitives
@@ -174,6 +176,9 @@ dependencies {
     // Credentials API for passkey
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
+
+    // Serialization
+    implementation(libs.kotlinx.serialization.json)
 
     // Debug only - won't be in release APK
     debugImplementation(libs.androidx.compose.ui.tooling)

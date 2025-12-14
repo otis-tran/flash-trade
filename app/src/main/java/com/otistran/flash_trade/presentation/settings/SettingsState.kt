@@ -1,5 +1,6 @@
 package com.otistran.flash_trade.presentation.settings
 
+import androidx.compose.runtime.Stable
 import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.model.ThemeMode
 import com.otistran.flash_trade.presentation.base.MviState
@@ -7,6 +8,7 @@ import com.otistran.flash_trade.presentation.base.MviState
 /**
  * UI state for settings screen.
  */
+@Stable
 data class SettingsState(
     val networkMode: NetworkMode = NetworkMode.TESTNET,
     val themeMode: ThemeMode = ThemeMode.DARK,
