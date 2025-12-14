@@ -21,6 +21,7 @@ import androidx.navigation.toRoute
 import com.otistran.flash_trade.domain.usecase.CheckLoginStatusUseCase
 import com.otistran.flash_trade.presentation.auth.AuthCheckViewModel
 import com.otistran.flash_trade.presentation.auth.LoginScreen
+import com.otistran.flash_trade.presentation.portfolio.PortfolioScreen
 import com.otistran.flash_trade.presentation.settings.SettingsScreen
 import com.otistran.flash_trade.util.Result
 
@@ -113,7 +114,7 @@ fun FlashTradeNavGraph(
                 // =================================================================
                 navigation<PortfolioGraph>(startDestination = PortfolioScreen) {
                     composable<PortfolioScreen> {
-                        // TODO: PortfolioScreen()
+                        PortfolioScreen()
                     }
                 }
 
