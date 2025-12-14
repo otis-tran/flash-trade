@@ -304,7 +304,7 @@ com.otistran.flash_trade/
 │   ├── trading/                       # Trading feature
 │   ├── portfolio/                     # Portfolio feature
 │   ├── settings/                      # Settings feature
-│   ├── navigation/                    # Navigation graph
+│   ├── navigation/                    # ✅ Navigation (Bottom nav + nested graphs)
 │   └── common/                        # Shared UI components
 │
 ├── ui/

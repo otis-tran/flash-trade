@@ -1,28 +1,47 @@
 package com.otistran.flash_trade.presentation.navigation
 
+import kotlinx.serialization.Serializable
+
 /**
- * Navigation routes for the app.
+ * Type-safe navigation routes for Flash Trade app.
+ * Uses Kotlin Serialization for Navigation Compose 2.8+ type safety.
  */
-sealed class Screen(val route: String) {
-    // Onboarding flow
-    data object Welcome : Screen("welcome")
-    data object Login : Screen("login")
 
-    // Main flow
-    data object Trading : Screen("trading")
-    data object Portfolio : Screen("portfolio")
-    data object Settings : Screen("settings")
+// =============================================================================
+// Auth Flow (no bottom nav)
+// =============================================================================
+@Serializable
+object Welcome
 
-    // Detail screens
-    data class TradeDetails(val tradeId: String = "{tradeId}") : Screen("trade/$tradeId") {
-        companion object {
-            const val TRADE_ID_ARG = "tradeId"
-            fun createRoute(tradeId: String) = "trade/$tradeId"
-        }
-    }
+@Serializable
+object Login
 
-    companion object {
-        // Start destination
-        val START = Login
-    }
-}
+// =============================================================================
+// Top-level Navigation Graphs (bottom nav tabs)
+// =============================================================================
+@Serializable
+object TradingGraph
+
+@Serializable
+object PortfolioGraph
+
+@Serializable
+object SettingsGraph
+
+// =============================================================================
+// Main Screens (nested in graphs)
+// =============================================================================
+@Serializable
+object TradingScreen
+
+@Serializable
+object PortfolioScreen
+
+@Serializable
+object SettingsScreen
+
+// =============================================================================
+// Detail Screens (nested, no bottom nav)
+// =============================================================================
+@Serializable
+data class TradeDetails(val tradeId: String)

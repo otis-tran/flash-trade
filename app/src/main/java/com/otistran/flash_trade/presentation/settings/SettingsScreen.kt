@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -13,19 +14,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.otistran.flash_trade.presentation.common.LoadingIndicator
 import com.otistran.flash_trade.presentation.settings.components.LogoutConfirmSheet
 import com.otistran.flash_trade.presentation.settings.components.LogoutSection
@@ -36,6 +35,7 @@ import com.otistran.flash_trade.presentation.settings.components.ThemeModeSectio
 /**
  * Settings screen.
  * Displays network mode, theme mode, and logout options.
+ * No nested Scaffold - uses Surface (root Scaffold in MainActivity).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,8 +75,12 @@ fun SettingsScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // TopAppBar for Settings (no nested Scaffold)
             CenterAlignedTopAppBar(
                 title = { Text("Settings") },
                 navigationIcon = {
@@ -89,43 +93,42 @@ fun SettingsScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
-                )
+                ),
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
-        },
-        modifier = modifier
-    ) { paddingValues ->
-        if (state.isLoading) {
-            LoadingIndicator(modifier = Modifier.fillMaxSize())
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                NetworkModeSection(
-                    networkMode = state.networkMode,
-                    onNetworkModeChange = { mode ->
-                        viewModel.onIntent(SettingsIntent.ToggleNetworkMode(mode))
-                    }
-                )
 
-                ThemeModeSection(
-                    themeMode = state.themeMode,
-                    onThemeModeChange = { mode ->
-                        viewModel.onIntent(SettingsIntent.ToggleThemeMode(mode))
-                    }
-                )
+            if (state.isLoading) {
+                LoadingIndicator(modifier = Modifier.fillMaxSize())
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    NetworkModeSection(
+                        networkMode = state.networkMode,
+                        onNetworkModeChange = { mode ->
+                            viewModel.onIntent(SettingsIntent.ToggleNetworkMode(mode))
+                        }
+                    )
 
-                Spacer(modifier = Modifier.weight(1f))
+                    ThemeModeSection(
+                        themeMode = state.themeMode,
+                        onThemeModeChange = { mode ->
+                            viewModel.onIntent(SettingsIntent.ToggleThemeMode(mode))
+                        }
+                    )
 
-                LogoutSection(
-                    isLoggingOut = state.isLoggingOut,
-                    onLogoutClick = {
-                        viewModel.onIntent(SettingsIntent.RequestLogout)
-                    }
-                )
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    LogoutSection(
+                        isLoggingOut = state.isLoggingOut,
+                        onLogoutClick = {
+                            viewModel.onIntent(SettingsIntent.RequestLogout)
+                        }
+                    )
+                }
             }
         }
     }

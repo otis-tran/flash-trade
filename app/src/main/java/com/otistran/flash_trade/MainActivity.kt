@@ -12,10 +12,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.navigation.compose.rememberNavController
 import com.otistran.flash_trade.data.local.datastore.UserPreferences
 import com.otistran.flash_trade.di.PrivyProvider
 import com.otistran.flash_trade.domain.model.ThemeMode
+import com.otistran.flash_trade.presentation.navigation.BottomNavBar
 import com.otistran.flash_trade.presentation.navigation.FlashTradeNavGraph
+import com.otistran.flash_trade.presentation.navigation.rememberAppState
 import com.otistran.flash_trade.ui.theme.FlashTradeTheme
 import dagger.hilt.android.AndroidEntryPoint
 import io.privy.logging.PrivyLogLevel
@@ -47,9 +50,24 @@ class MainActivity : ComponentActivity() {
             }
 
             FlashTradeTheme(darkTheme = isDarkTheme) {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                val navController = rememberNavController()
+                val appState = rememberAppState(navController)
+
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    bottomBar = {
+                        if (appState.shouldShowBottomBar) {
+                            BottomNavBar(
+                                destinations = appState.topLevelDestinations,
+                                currentDestination = appState.currentTopLevelDestination,
+                                onNavigateToDestination = appState::navigateToTopLevelDestination
+                            )
+                        }
+                    }
+                ) { paddingValues ->
                     FlashTradeNavGraph(
-                        modifier = Modifier.padding(innerPadding)
+                        navController = navController,
+                        modifier = Modifier.padding(paddingValues)
                     )
                 }
             }
