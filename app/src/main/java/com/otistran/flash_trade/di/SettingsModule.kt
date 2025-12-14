@@ -1,9 +1,10 @@
 package com.otistran.flash_trade.di
 
+import com.otistran.flash_trade.data.local.datastore.UserPreferences
 import com.otistran.flash_trade.data.repository.SettingsRepositoryImpl
 import com.otistran.flash_trade.domain.repository.SettingsRepository
-import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
@@ -13,11 +14,10 @@ import javax.inject.Singleton
  */
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class SettingsModule {
-
-    @Binds
+object SettingsModule {
+    @Provides
     @Singleton
-    abstract fun bindSettingsRepository(
-        impl: SettingsRepositoryImpl
-    ): SettingsRepository
+    fun provideSettingsRepository(
+        userPreferences: UserPreferences
+    ): SettingsRepository = SettingsRepositoryImpl(userPreferences)
 }

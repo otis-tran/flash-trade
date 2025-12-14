@@ -5,7 +5,9 @@ import com.otistran.flash_trade.data.local.datastore.UserPreferences
 import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.model.ThemeMode
 import com.otistran.flash_trade.domain.repository.SettingsRepository
+import com.otistran.flash_trade.domain.usecase.LogoutUseCase
 import com.otistran.flash_trade.presentation.base.MviContainer
+import com.otistran.flash_trade.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
@@ -18,7 +20,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
-    private val userPreferences: UserPreferences
+    private val userPreferences: UserPreferences,
+    private val logoutUseCase: LogoutUseCase
 ) : MviContainer<SettingsState, SettingsIntent, SettingsSideEffect>(
     initialState = SettingsState()
 ) {
@@ -125,15 +128,28 @@ class SettingsViewModel @Inject constructor(
     private fun handleLogoutConfirm() {
         viewModelScope.launch {
             reduce { copy(isLoggingOut = true, showLogoutConfirmSheet = false) }
-            try {
-                // Clear all user data
-                userPreferences.clear()
-                settingsRepository.clearSettings()
 
-                // Navigate to login
-                emitSideEffect(SettingsSideEffect.NavigateToLogin)
-            } catch (e: Exception) {
-                reduce { copy(isLoggingOut = false, error = e.message) }
+            when (val result = logoutUseCase()) {
+                is Result.Success -> {
+                    // Clear all local data
+                    userPreferences.clear()
+                    settingsRepository.clearSettings()
+
+                    emitSideEffect(SettingsSideEffect.NavigateToLogin)
+                }
+
+                is Result.Error -> {
+                    reduce {
+                        copy(
+                            isLoggingOut = false,
+                            error = "Logout failed: ${result.message}"
+                        )
+                    }
+                }
+
+                Result.Loading -> {
+                    // Already in loading state
+                }
             }
         }
     }
