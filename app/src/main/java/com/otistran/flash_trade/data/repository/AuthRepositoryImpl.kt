@@ -10,6 +10,9 @@ import com.otistran.flash_trade.domain.model.User
 import com.otistran.flash_trade.domain.model.UserAuthState
 import com.otistran.flash_trade.domain.repository.AuthRepository
 import com.otistran.flash_trade.util.Result
+import io.privy.auth.PrivyUser
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -112,6 +115,7 @@ class AuthRepositoryImpl @Inject constructor(
             val result = privyAuthService.loginWithOAuth(privyProvider, appUrlScheme)
             result.fold(
                 onSuccess = { privyUser ->
+                    handleSuccessfulLogin(privyUser)
                     val user = privyUser.toUser()
                     Log.d(TAG, "OAuth login success: ${user.id}, user: $user")
                     // Save login state to DataStore
@@ -148,6 +152,45 @@ class AuthRepositoryImpl @Inject constructor(
             Log.e(TAG, "Logout exception", e)
             Result.Error("Logout failed", e)
         }
+    }
+
+    /**
+     * Handle successful login: create wallets + save state.
+     * Wallet creation runs in parallel to minimize wait time.
+     */
+    private suspend fun handleSuccessfulLogin(privyUser: PrivyUser): Result<User> = coroutineScope {
+        Log.d(TAG, "Login success for user: ${privyUser.id}")
+
+        // Convert to domain user first (may already have wallet addresses)
+        var user = privyUser.toUser()
+
+        // Start wallet creation in background (parallel)
+        val walletCreationDeferred = async {
+            privyAuthService.ensureWallets(privyUser)
+        }
+
+        // Save initial login state immediately (user can see Home screen)
+        userPreferences.saveLoginState(user)
+
+        // Wait for wallet creation to complete
+        val walletResult = walletCreationDeferred.await()
+
+        // Update user with wallet addresses if created
+        if (walletResult.hasAnyWallet) {
+            user = user.copy(
+                walletAddress = walletResult.ethereumAddress ?: user.walletAddress
+            )
+            // Update DataStore with wallet addresses
+            userPreferences.saveLoginState(user)
+            Log.d(TAG, "Wallets created - ETH: ${walletResult.ethereumAddress}")
+        }
+
+        // Log any wallet creation errors (non-blocking)
+        walletResult.ethereumError?.let {
+            Log.w(TAG, "Ethereum wallet creation failed (non-critical)", it)
+        }
+
+        Result.Success(user)
     }
 
     /**

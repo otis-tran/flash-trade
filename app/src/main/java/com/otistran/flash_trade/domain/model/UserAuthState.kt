@@ -22,4 +22,7 @@ data class UserAuthState(
 
     val isEmpty: Boolean
         get() = userId.isNullOrBlank()
+
+    val hasWallet: Boolean
+        get() = !walletAddress.isNullOrBlank()
 }
