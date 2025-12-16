@@ -7,7 +7,11 @@ data class User(
     val id: String,
     val email: String? = null,
     val displayName: String? = null,
-    val avatarUrl: String? = null,
     val walletAddress: String? = null,
-    val isOnboarded: Boolean = false
+    val linkedAccounts: List<LinkedAccount> = emptyList()
+)
+
+data class LinkedAccount(
+    val type: String,
+    val address: String? = null
 )
