@@ -40,12 +40,23 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getUserAuthState(): UserAuthState {
+        // Ưu tiên đọc từ DataStore (nhanh, offline)
         return userPreferences.authStateFlow.first()
     }
 
     override suspend fun hasValidSession(): Boolean {
-        val userAuthState = getUserAuthState()
-        return userAuthState.isSessionValid
+        // Check local first (instant)
+        val localState = userPreferences.authStateFlow.first()
+        if (!localState.isLoggedIn) return false
+
+        // Then verify with Privy if needed
+        return try {
+            val privyState = privyAuthService.getAuthState()
+            privyState.isAuthenticated()
+        } catch (e: Exception) {
+            // Offline - check local session validity
+            localState.isSessionValid
+        }
     }
 
     override suspend fun loginWithPasskey(relyingParty: String): Result<User> {

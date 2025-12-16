@@ -1,41 +1,55 @@
 package com.otistran.flash_trade.data.service
 
-import android.content.Context
 import android.util.Log
-import com.otistran.flash_trade.BuildConfig
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.otistran.flash_trade.di.PrivyProvider
 import io.privy.auth.AuthState as PrivyAuthState
 import io.privy.auth.PrivyUser
-import io.privy.logging.PrivyLogLevel
-import io.privy.sdk.Privy
-import io.privy.sdk.PrivyConfig
 import io.privy.auth.oAuth.OAuthProvider as PrivyOAuthProvider
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private const val TAG = "PrivyAuthService"
+
 /**
  * Wrapper service for Privy SDK operations.
- * Isolates SDK calls for easier testing and error handling.
+ * Uses lazy Privy initialization via PrivyProvider.
  */
 @Singleton
-class PrivyAuthService @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val privy: Privy
-) {
+class PrivyAuthService @Inject constructor() {
 
     /**
      * Observe auth state changes.
      */
-    val authStateFlow: Flow<PrivyAuthState> = privy.authState
+    val authStateFlow: Flow<PrivyAuthState> = flow {
+        val privy = PrivyProvider.getInstance()
+        privy.authState.collect { emit(it) }
+    }
 
     /**
      * Get current auth state (one-time).
+     * Uses new getAuthState() which auto-awaits ready.
      */
     suspend fun getAuthState(): PrivyAuthState {
-        privy.awaitReady()
-        return privy.authState.value
+        val privy = PrivyProvider.getInstance()
+        return privy.getAuthState()
+    }
+
+    /**
+     * Get current authenticated user if exists.
+     */
+    suspend fun getUser(): PrivyUser? {
+        val privy = PrivyProvider.getInstance()
+        return privy.getUser()
+    }
+
+    /**
+     * Check if user has persisted credentials (for offline scenarios).
+     */
+    suspend fun hasPersistedCredentials(): Boolean {
+        val privy = PrivyProvider.getInstance()
+        return privy.hasPersistedAuthCredentials()
     }
 
     /**
@@ -43,8 +57,9 @@ class PrivyAuthService @Inject constructor(
      * @param relyingParty Domain hosting Digital Asset Links
      */
     suspend fun loginWithPasskey(relyingParty: String): Result<PrivyUser> {
-        privy.awaitReady()
-        Log.d("loginWithPasskey", "loginWithPasskey() called with: relyingParty = $relyingParty")
+        val privy = PrivyProvider.getInstance()
+        privy.getAuthState()
+        Log.d(TAG, "loginWithPasskey() called with: relyingParty = $relyingParty")
         return privy.passkey.login(relyingParty = relyingParty)
     }
 
@@ -53,7 +68,8 @@ class PrivyAuthService @Inject constructor(
      * @param relyingParty Domain hosting Digital Asset Links
      */
     suspend fun signupWithPasskey(relyingParty: String): Result<PrivyUser> {
-        privy.awaitReady()
+        val privy = PrivyProvider.getInstance()
+        privy.getAuthState()
         return privy.passkey.signup(relyingParty = relyingParty)
     }
 
@@ -66,11 +82,9 @@ class PrivyAuthService @Inject constructor(
         provider: PrivyOAuthProvider,
         appUrlScheme: String
     ): Result<PrivyUser> {
-        privy.awaitReady()
-        Log.d(
-            "PrivyUser",
-            "loginWithOAuth() called with: provider = $provider, appUrlScheme = $appUrlScheme"
-        )
+        val privy = PrivyProvider.getInstance()
+        privy.getAuthState()
+        Log.d(TAG, "loginWithOAuth() called with: provider = $provider, appUrlScheme = $appUrlScheme")
         return privy.oAuth.login(
             oAuthProvider = provider,
             appUrlScheme = "$appUrlScheme://oauth/callback"
@@ -82,10 +96,20 @@ class PrivyAuthService @Inject constructor(
      */
     suspend fun logout(): Result<Unit> {
         return try {
+            val privy = PrivyProvider.getInstance()
             privy.logout()
             Result.success(Unit)
         } catch (e: Exception) {
+            Log.e(TAG, "Logout failed", e)
             Result.failure(e)
         }
+    }
+
+    /**
+     * Called when network is restored to refresh auth state.
+     */
+    suspend fun onNetworkRestored() {
+        val privy = PrivyProvider.getInstance()
+        privy.onNetworkRestored()
     }
 }

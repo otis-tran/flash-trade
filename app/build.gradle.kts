@@ -180,6 +180,9 @@ dependencies {
     // Serialization
     implementation(libs.kotlinx.serialization.json)
 
+    // Jetpack Startup
+    //implementation(libs.androidx.startup.runtime)
+
     // Debug only - won't be in release APK
     debugImplementation(libs.androidx.compose.ui.tooling)
 
