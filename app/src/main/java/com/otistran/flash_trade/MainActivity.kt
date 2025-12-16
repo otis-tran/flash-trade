@@ -37,9 +37,8 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
 
         super.onCreate(savedInstanceState)
-        // Initialize Privy SDK (MUST be on main thread)
-        val privyInstance = initializePrivy()
-        PrivyProvider.initialize(privyInstance)
+        // Set context for lazy Privy init (instant, NO blocking)
+        PrivyProvider.setContext(this)
         enableEdgeToEdge()
         setContent {
             val themeModeString by userPreferences.themeMode.collectAsState(initial = "DARK")
@@ -72,20 +71,5 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    /**
-     * Initialize Privy SDK for OAuth authentication and wallet creation
-     * Uses credentials from BuildConfig (loaded from local.properties)
-     */
-    private fun initializePrivy(): Privy {
-        return Privy.init(
-            context = this,
-            config = PrivyConfig(
-                appId = BuildConfig.PRIVY_APP_ID,
-                appClientId = BuildConfig.PRIVY_APP_CLIENT_ID, // Same for basic setup
-                logLevel = if (BuildConfig.DEBUG) PrivyLogLevel.VERBOSE else PrivyLogLevel.NONE
-            )
-        )
     }
 }
