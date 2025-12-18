@@ -13,7 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.navigation.compose.rememberNavController
-import com.otistran.flash_trade.data.local.datastore.UserPreferences
+import com.otistran.flash_trade.core.datastore.UserPreferences
 import com.otistran.flash_trade.di.PrivyProvider
 import com.otistran.flash_trade.domain.model.ThemeMode
 import com.otistran.flash_trade.presentation.navigation.BottomNavBar
@@ -21,9 +21,6 @@ import com.otistran.flash_trade.presentation.navigation.FlashTradeNavGraph
 import com.otistran.flash_trade.presentation.navigation.rememberAppState
 import com.otistran.flash_trade.ui.theme.FlashTradeTheme
 import dagger.hilt.android.AndroidEntryPoint
-import io.privy.logging.PrivyLogLevel
-import io.privy.sdk.Privy
-import io.privy.sdk.PrivyConfig
 import javax.inject.Inject
 
 @AndroidEntryPoint

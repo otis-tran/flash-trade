@@ -1,7 +1,7 @@
 package com.otistran.flash_trade.data.repository
 
 import android.util.Log
-import com.otistran.flash_trade.data.local.datastore.UserPreferences
+import com.otistran.flash_trade.core.datastore.UserPreferences
 import com.otistran.flash_trade.data.mapper.toUser
 import com.otistran.flash_trade.data.service.PrivyAuthService
 import com.otistran.flash_trade.domain.model.AuthState
