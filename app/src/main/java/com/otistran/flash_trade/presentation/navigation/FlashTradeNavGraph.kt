@@ -11,6 +11,7 @@ import androidx.navigation.toRoute
 import com.otistran.flash_trade.presentation.feature.auth.LoginScreen
 import com.otistran.flash_trade.presentation.feature.portfolio.PortfolioScreen
 import com.otistran.flash_trade.presentation.feature.settings.SettingsScreen
+import com.otistran.flash_trade.presentation.feature.trading.TradingScreen
 
 /**
  * Main navigation graph for Flash Trade app.
@@ -42,7 +43,11 @@ fun FlashTradeNavGraph(
         // ==================== Trading Tab ====================
         navigation<TradingGraph>(startDestination = TradingScreen) {
             composable<TradingScreen> {
-                // TODO: TradingScreen()
+                TradingScreen(
+                    onNavigateToTradeDetails = { tokenAddress ->
+                        // navController.navigate(TradeDetails(tokenAddress))
+                    }
+                )
             }
 
             composable<TradeDetails> { backStackEntry ->

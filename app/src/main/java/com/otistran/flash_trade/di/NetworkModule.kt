@@ -19,6 +19,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Named
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -36,8 +37,9 @@ object NetworkModule {
     private const val READ_TIMEOUT = 30L
     private const val WRITE_TIMEOUT = 30L
 
-    // TODO: Move to BuildConfig or remote config
     private const val BASE_URL = "https://api.example.com/"
+    private const val KYBER_MAINNET_URL = "https://kd-market-service-api.kyberengineering.io/ethereum/"
+    private const val KYBER_TESTNET_URL = "https://kd-market-service-api.kyberengineering.io/sepolia/"
 
     // ==================== Interceptors ====================
 
@@ -86,24 +88,34 @@ object NetworkModule {
         loggingInterceptor: HttpLoggingInterceptor
     ): OkHttpClient {
         return OkHttpClient.Builder()
-            // Interceptors order matters!
-            // 1. Check network connectivity first
             .addInterceptor(networkInterceptor)
-            // 2. Add authentication headers
             .addInterceptor(authInterceptor)
-            // 3. Handle/log responses
             .addInterceptor(responseInterceptor)
-            // 4. Log full request/response (debug only)
             .addInterceptor(loggingInterceptor)
-
-            // Timeouts
             .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
             .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
-
-            // Retry on connection failure
             .retryOnConnectionFailure(true)
+            .build()
+    }
 
+    /**
+     * Lightweight OkHttpClient for Kyber API (no auth needed).
+     */
+    @Provides
+    @Singleton
+    @Named("kyberClient")
+    fun provideKyberOkHttpClient(
+        networkInterceptor: NetworkInterceptor,
+        loggingInterceptor: HttpLoggingInterceptor
+    ): OkHttpClient {
+        return OkHttpClient.Builder()
+            .addInterceptor(networkInterceptor)
+            .addInterceptor(loggingInterceptor)
+            .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
+            .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
+            .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
             .build()
     }
 
@@ -113,13 +125,11 @@ object NetworkModule {
     @Singleton
     fun provideMoshi(): Moshi {
         return Moshi.Builder()
-            // KotlinJsonAdapterFactory for reflection-based parsing
-            // Note: For production, prefer @JsonClass(generateAdapter = true) with moshi-codegen
             .addLast(KotlinJsonAdapterFactory())
             .build()
     }
 
-    // ==================== Retrofit ====================
+    // ==================== Retrofit Instances ====================
 
     @Provides
     @Singleton
@@ -135,6 +145,23 @@ object NetworkModule {
     ): Retrofit {
         return Retrofit.Builder()
             .baseUrl(baseUrl)
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+    }
+
+    /**
+     * Kyber API Retrofit instance.
+     */
+    @Provides
+    @Singleton
+    @Named("kyber")
+    fun provideKyberRetrofit(
+        @Named("kyberClient") okHttpClient: OkHttpClient,
+        moshi: Moshi
+    ): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl(KYBER_MAINNET_URL)
             .client(okHttpClient)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
