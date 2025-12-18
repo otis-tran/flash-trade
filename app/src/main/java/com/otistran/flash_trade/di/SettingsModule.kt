@@ -1,6 +1,6 @@
 package com.otistran.flash_trade.di
 
-import com.otistran.flash_trade.data.local.datastore.UserPreferences
+import com.otistran.flash_trade.core.datastore.UserPreferences
 import com.otistran.flash_trade.data.repository.SettingsRepositoryImpl
 import com.otistran.flash_trade.domain.repository.SettingsRepository
 import dagger.Module

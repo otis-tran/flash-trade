@@ -4,12 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.navigation.NavDestination
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 
 /**
  * Centralized app state holder for navigation management.
- * Uses @Stable to prevent unnecessary recompositions.
  */
 @Stable
 class AppState(val navController: NavHostController) {
@@ -18,62 +18,35 @@ class AppState(val navController: NavHostController) {
         @Composable get() = navController.currentBackStackEntryAsState().value?.destination
 
     /**
-     * Current route as type-safe navigation object.
-     * Maps route string back to sealed class instance.
-     */
-    val currentRoute: Any?
-        @Composable get() = currentDestination?.route?.let { route ->
-            when {
-                route.contains("TradingGraph") -> TradingGraph
-                route.contains("TradingScreen") -> TradingScreen
-                route.contains("PortfolioGraph") -> PortfolioGraph
-                route.contains("PortfolioScreen") -> PortfolioScreen
-                route.contains("SettingsGraph") -> SettingsGraph
-                route.contains("SettingsScreen") -> SettingsScreen
-                route.contains("Welcome") -> Welcome
-                route.contains("Login") -> Login
-                route.contains("TradeDetails") -> TradeDetails::class
-                else -> null
-            }
-        }
-
-    /**
      * Determines if bottom navigation bar should be visible.
-     * Show on: Trading, Portfolio, Settings (graphs and screens)
-     * Hide on: Welcome, Login, TradeDetails
+     * Show on main tab screens, hide on auth and detail screens.
      */
     val shouldShowBottomBar: Boolean
         @Composable get() {
-            val route = currentRoute
-            return route is TradingGraph ||
-                    route is TradingScreen ||
-                    route is PortfolioGraph ||
-                    route is PortfolioScreen ||
-                    route is SettingsGraph ||
-                    route is SettingsScreen
+            val destination = currentDestination ?: return false
+            return TOP_LEVEL_ROUTES.any { destination.hasRoute(it::class) }
         }
 
     /**
      * Current top-level destination for bottom nav selection state.
      */
     val currentTopLevelDestination: TopLevelDestination?
-        @Composable get() = when (currentRoute) {
-            is TradingGraph, is TradingScreen -> TopLevelDestination.TRADING
-            is PortfolioGraph, is PortfolioScreen -> TopLevelDestination.PORTFOLIO
-            is SettingsGraph, is SettingsScreen -> TopLevelDestination.SETTINGS
-            else -> null
+        @Composable get() {
+            val destination = currentDestination ?: return null
+            return TopLevelDestination.entries.find { topLevel ->
+                ROUTE_TO_DESTINATION[topLevel]?.any { route ->
+                    destination.hasRoute(route::class)
+                } == true
+            }
         }
 
     /**
      * All available top-level destinations for bottom nav.
      */
-    val topLevelDestinations = TopLevelDestination.entries
+    val topLevelDestinations: List<TopLevelDestination> = TopLevelDestination.entries
 
     /**
      * Navigate to a top-level destination with proper back stack handling.
-     * - Pops up to start destination (saves state)
-     * - Single top (prevents duplicate entries)
-     * - Restores state (maintains tab state)
      */
     fun navigateToTopLevelDestination(destination: TopLevelDestination) {
         navController.navigate(destination.route) {
@@ -84,10 +57,26 @@ class AppState(val navController: NavHostController) {
             restoreState = true
         }
     }
+
+    companion object {
+        /** Routes that show bottom bar */
+        private val TOP_LEVEL_ROUTES = listOf(
+            TradingGraph, TradingScreen,
+            PortfolioGraph, PortfolioScreen,
+            SettingsGraph, SettingsScreen
+        )
+
+        /** Map destinations to their routes */
+        private val ROUTE_TO_DESTINATION = mapOf(
+            TopLevelDestination.TRADING to listOf(TradingGraph, TradingScreen),
+            TopLevelDestination.PORTFOLIO to listOf(PortfolioGraph, PortfolioScreen),
+            TopLevelDestination.SETTINGS to listOf(SettingsGraph, SettingsScreen)
+        )
+    }
 }
 
 /**
- * Remember AppState across recompositions, keyed by navController.
+ * Remember AppState across recompositions.
  */
 @Composable
 fun rememberAppState(

@@ -183,6 +183,13 @@ dependencies {
     // Jetpack Startup
     //implementation(libs.androidx.startup.runtime)
 
+    // Coil
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
+
+    //
+    implementation(libs.okhttp.logging)
+
     // Debug only - won't be in release APK
     debugImplementation(libs.androidx.compose.ui.tooling)
 

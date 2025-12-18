@@ -11,63 +11,43 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import com.otistran.flash_trade.domain.usecase.CheckLoginStatusUseCase
-import com.otistran.flash_trade.presentation.auth.AuthCheckViewModel
-import com.otistran.flash_trade.presentation.auth.LoginScreen
-import com.otistran.flash_trade.presentation.portfolio.PortfolioScreen
-import com.otistran.flash_trade.presentation.settings.SettingsScreen
-import com.otistran.flash_trade.util.Result
+import com.otistran.flash_trade.presentation.feature.auth.LoginScreen
+import com.otistran.flash_trade.presentation.feature.auth.LoginViewModel
+import com.otistran.flash_trade.presentation.feature.portfolio.PortfolioScreen
+import com.otistran.flash_trade.presentation.feature.settings.SettingsScreen
 
 /**
  * Main navigation graph for Flash Trade app.
- * Uses type-safe navigation with nested graphs for bottom nav tabs.
  */
 @Composable
 fun FlashTradeNavGraph(
     modifier: Modifier = Modifier,
-    navController: NavHostController = rememberNavController(),
-    checkLoginStatusUseCase: CheckLoginStatusUseCase = hiltViewModel<AuthCheckViewModel>().checkLoginStatusUseCase
+    navController: NavHostController = rememberNavController()
 ) {
+    val loginViewModel: LoginViewModel = hiltViewModel()
+
     var startDestination by remember { mutableStateOf<Any?>(null) }
     var isChecking by remember { mutableStateOf(true) }
 
+    // Check session on launch
     LaunchedEffect(Unit) {
-        when (val result = checkLoginStatusUseCase()) {
-            is Result.Success -> {
-                val authState = result.data
-                startDestination = if (authState.isLoggedIn && authState.isSessionValid) {
-                    TradingGraph
-                } else {
-                    Login
-                }
+        loginViewModel.state.collect { state ->
+            if (!state.isCheckingSession) {
+                startDestination = if (state.isAuthenticated) TradingGraph else Login
                 isChecking = false
-            }
-
-            is Result.Error -> {
-                startDestination = Login
-                isChecking = false
-            }
-
-            Result.Loading -> {
-                // Continue checking
             }
         }
     }
+
     if (isChecking) {
-        // Show loading or splash
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator()
-        }
+        LoadingScreen()
     } else {
         startDestination?.let { destination ->
             NavHost(
@@ -75,9 +55,7 @@ fun FlashTradeNavGraph(
                 startDestination = destination,
                 modifier = modifier
             ) {
-                // =================================================================
-                // Auth Flow (no bottom nav)
-                // =================================================================
+                // ==================== Auth Flow ====================
                 composable<Welcome> {
                     // TODO: WelcomeScreen()
                 }
@@ -85,9 +63,7 @@ fun FlashTradeNavGraph(
                 composable<Login> {
                     LoginScreen(
                         onNavigateToTrading = {
-                            navController.navigate(TradingGraph) {
-                                popUpTo<Login> { inclusive = true }
-                            }
+                            navController.navigateToHome()
                         },
                         onNavigateBack = {
                             navController.popBackStack()
@@ -95,9 +71,7 @@ fun FlashTradeNavGraph(
                     )
                 }
 
-                // =================================================================
-                // Trading Tab (nested graph)
-                // =================================================================
+                // ==================== Trading Tab ====================
                 navigation<TradingGraph>(startDestination = TradingScreen) {
                     composable<TradingScreen> {
                         // TODO: TradingScreen()
@@ -109,25 +83,19 @@ fun FlashTradeNavGraph(
                     }
                 }
 
-                // =================================================================
-                // Portfolio Tab (nested graph)
-                // =================================================================
+                // ==================== Portfolio Tab ====================
                 navigation<PortfolioGraph>(startDestination = PortfolioScreen) {
                     composable<PortfolioScreen> {
                         PortfolioScreen()
                     }
                 }
 
-                // =================================================================
-                // Settings Tab (nested graph)
-                // =================================================================
+                // ==================== Settings Tab ====================
                 navigation<SettingsGraph>(startDestination = SettingsScreen) {
                     composable<SettingsScreen> {
                         SettingsScreen(
                             onNavigateToLogin = {
-                                navController.navigate(Login) {
-                                    popUpTo(0) { inclusive = true }
-                                }
+                                navController.navigateToLogin()
                             },
                             onNavigateBack = {
                                 navController.popBackStack()
@@ -140,32 +108,32 @@ fun FlashTradeNavGraph(
     }
 }
 
-/**
- * Navigation actions for type-safe navigation.
- */
-class FlashTradeNavigationActions(private val navController: NavHostController) {
-    fun navigateToLogin() = navController.navigate(Login)
+@Composable
+private fun LoadingScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator()
+    }
+}
 
-    fun navigateToTrading() = navController.navigate(TradingGraph) {
+// ==================== Navigation Extensions ====================
+
+/**
+ * Navigate to home (Trading) after login, clearing auth backstack.
+ */
+private fun NavHostController.navigateToHome() {
+    navigate(TradingGraph) {
         popUpTo<Login> { inclusive = true }
     }
+}
 
-    /**
-     * Navigate to top-level destination with proper back stack management.
-     * Uses saveState + restoreState for tab state preservation.
-     */
-    fun navigateToTopLevelDestination(destination: TopLevelDestination) {
-        navController.navigate(destination.route) {
-            popUpTo(navController.graph.startDestinationId) {
-                saveState = true
-            }
-            launchSingleTop = true
-            restoreState = true
-        }
+/**
+ * Navigate to login after logout, clearing entire backstack.
+ */
+private fun NavHostController.navigateToLogin() {
+    navigate(Login) {
+        popUpTo(0) { inclusive = true }
     }
-
-    fun navigateToTradeDetails(tradeId: String) =
-        navController.navigate(TradeDetails(tradeId))
-
-    fun navigateBack() = navController.popBackStack()
 }

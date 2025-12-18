@@ -1,11 +1,11 @@
 package com.otistran.flash_trade.di
 
-import com.otistran.flash_trade.data.local.datastore.UserPreferences
+import com.otistran.flash_trade.core.datastore.UserPreferences
 import com.otistran.flash_trade.data.repository.AuthRepositoryImpl
 import com.otistran.flash_trade.data.service.PrivyAuthService
 import com.otistran.flash_trade.domain.repository.AuthRepository
-import com.otistran.flash_trade.domain.usecase.CheckLoginStatusUseCase
-import com.otistran.flash_trade.domain.usecase.LogoutUseCase
+import com.otistran.flash_trade.domain.usecase.auth.CheckLoginStatusUseCase
+import com.otistran.flash_trade.domain.usecase.auth.LogoutUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

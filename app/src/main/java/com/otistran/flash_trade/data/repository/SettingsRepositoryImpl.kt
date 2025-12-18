@@ -1,8 +1,8 @@
 package com.otistran.flash_trade.data.repository
 
-import com.otistran.flash_trade.data.local.datastore.UserPreferences
+import com.otistran.flash_trade.core.datastore.UserPreferences
 import com.otistran.flash_trade.domain.model.NetworkMode
-import com.otistran.flash_trade.domain.model.SettingsModel
+import com.otistran.flash_trade.domain.model.Settings
 import com.otistran.flash_trade.domain.model.ThemeMode
 import com.otistran.flash_trade.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
@@ -18,13 +18,13 @@ class SettingsRepositoryImpl @Inject constructor(
     private val userPreferences: UserPreferences
 ) : SettingsRepository {
 
-    override fun observeSettings(): Flow<SettingsModel> {
+    override fun observeSettings(): Flow<Settings> {
         return combine(
             userPreferences.networkMode,
             userPreferences.themeMode,
             userPreferences.autoSellEnabled
         ) { network, theme, autoSell ->
-            SettingsModel(
+            Settings(
                 networkMode = NetworkMode.valueOf(network),
                 themeMode = ThemeMode.valueOf(theme),
                 isAutoSellEnabled = autoSell
