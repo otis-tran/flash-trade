@@ -53,16 +53,22 @@
 |       |   |               |   |   |-- database
 |       |   |               |   |   `-- entity
 |       |   |               |   |-- mapper
+|       |   |               |   |   |-- TokenMapper.kt
 |       |   |               |   |   `-- UserMapper.kt
 |       |   |               |   |-- remote
+|       |   |               |   |   |-- api
+|       |   |               |   |   |   `-- KyberApiService.kt
 |       |   |               |   |   |-- dto
 |       |   |               |   |   |   |-- AuthDto.kt
-|       |   |               |   |   |   `-- BaseResponse.kt
+|       |   |               |   |   |   |-- BaseResponse.kt
+|       |   |               |   |   |   `-- kyber
+|       |   |               |   |   |       `-- TokenListResponse.kt
 |       |   |               |   |   `-- request
 |       |   |               |   |       `-- AuthRequest.kt
 |       |   |               |   |-- repository
 |       |   |               |   |   |-- AuthRepositoryImpl.kt
-|       |   |               |   |   `-- SettingsRepositoryImpl.kt
+|       |   |               |   |   |-- SettingsRepositoryImpl.kt
+|       |   |               |   |   `-- TokenRepositoryImpl.kt
 |       |   |               |   `-- service
 |       |   |               |       `-- PrivyAuthService.kt
 |       |   |               |-- di
@@ -70,22 +76,28 @@
 |       |   |               |   |-- AuthModule.kt
 |       |   |               |   |-- NetworkModule.kt
 |       |   |               |   |-- PrivyProvider.kt
-|       |   |               |   `-- SettingsModule.kt
+|       |   |               |   |-- SettingsModule.kt
+|       |   |               |   `-- TokenModule.kt
 |       |   |               |-- domain
 |       |   |               |   |-- model
 |       |   |               |   |   |-- AuthState.kt
 |       |   |               |   |   |-- Settings.kt
+|       |   |               |   |   |-- Token.kt
 |       |   |               |   |   |-- User.kt
 |       |   |               |   |   `-- UserAuthState.kt
 |       |   |               |   |-- repository
 |       |   |               |   |   |-- AuthRepository.kt
-|       |   |               |   |   `-- SettingsRepository.kt
+|       |   |               |   |   |-- SettingsRepository.kt
+|       |   |               |   |   `-- TokenRepository.kt
 |       |   |               |   `-- usecase
 |       |   |               |       |-- UseCase.kt
-|       |   |               |       `-- auth
-|       |   |               |           |-- CheckLoginStatusUseCase.kt
-|       |   |               |           |-- LoginUseCase.kt
-|       |   |               |           `-- LogoutUseCase.kt
+|       |   |               |       |-- auth
+|       |   |               |       |   |-- CheckLoginStatusUseCase.kt
+|       |   |               |       |   |-- LoginUseCase.kt
+|       |   |               |       |   `-- LogoutUseCase.kt
+|       |   |               |       `-- token
+|       |   |               |           |-- GetTokensUseCase.kt
+|       |   |               |           `-- SearchTokensUseCase.kt
 |       |   |               |-- presentation
 |       |   |               |   |-- feature
 |       |   |               |   |   |-- auth
@@ -100,18 +112,24 @@
 |       |   |               |   |   |   |-- PortfolioScreen.kt
 |       |   |               |   |   |   |-- PortfolioState.kt
 |       |   |               |   |   |   `-- PortfolioViewModel.kt
-|       |   |               |   |   `-- settings
-|       |   |               |   |       |-- SettingsEffect.kt
-|       |   |               |   |       |-- SettingsEvent.kt
-|       |   |               |   |       |-- SettingsScreen.kt
-|       |   |               |   |       |-- SettingsState.kt
-|       |   |               |   |       |-- SettingsViewModel.kt
-|       |   |               |   |       `-- components
-|       |   |               |   |           |-- LogoutConfirmSheet.kt
-|       |   |               |   |           |-- LogoutSection.kt
-|       |   |               |   |           |-- NetworkConfirmDialog.kt
-|       |   |               |   |           |-- NetworkModeSection.kt
-|       |   |               |   |           `-- ThemeModeSection.kt
+|       |   |               |   |   |-- settings
+|       |   |               |   |   |   |-- SettingsEffect.kt
+|       |   |               |   |   |   |-- SettingsEvent.kt
+|       |   |               |   |   |   |-- SettingsScreen.kt
+|       |   |               |   |   |   |-- SettingsState.kt
+|       |   |               |   |   |   |-- SettingsViewModel.kt
+|       |   |               |   |   |   `-- components
+|       |   |               |   |   |       |-- LogoutConfirmSheet.kt
+|       |   |               |   |   |       |-- LogoutSection.kt
+|       |   |               |   |   |       |-- NetworkConfirmDialog.kt
+|       |   |               |   |   |       |-- NetworkModeSection.kt
+|       |   |               |   |   |       `-- ThemeModeSection.kt
+|       |   |               |   |   `-- trading
+|       |   |               |   |       |-- TradingEffect.kt
+|       |   |               |   |       |-- TradingEvent.kt
+|       |   |               |   |       |-- TradingScreen.kt
+|       |   |               |   |       |-- TradingState.kt
+|       |   |               |   |       `-- TradingViewModel.kt
 |       |   |               |   `-- navigation
 |       |   |               |       |-- AppState.kt
 |       |   |               |       |-- BottomNavBar.kt
@@ -270,4 +288,4 @@
 |-- project_structure.txt
 `-- settings.gradle.kts
 
-93 directories, 177 files
+97 directories, 191 files
