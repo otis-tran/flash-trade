@@ -25,7 +25,7 @@ class SettingsRepositoryImpl @Inject constructor(
             userPreferences.autoSellEnabled
         ) { network, theme, autoSell ->
             Settings(
-                networkMode = NetworkMode.valueOf(network),
+                networkMode = NetworkMode.fromNameSafe(network),
                 themeMode = ThemeMode.valueOf(theme),
                 isAutoSellEnabled = autoSell
             )

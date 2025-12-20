@@ -19,6 +19,7 @@ import androidx.navigation.compose.rememberNavController
 import com.otistran.flash_trade.core.datastore.UserPreferences
 import com.otistran.flash_trade.di.PrivyProvider
 import com.otistran.flash_trade.domain.model.ThemeMode
+import com.otistran.flash_trade.domain.manager.PrefetchManager
 import com.otistran.flash_trade.domain.usecase.auth.CheckLoginStatusUseCase
 import com.otistran.flash_trade.presentation.navigation.BottomNavBar
 import com.otistran.flash_trade.presentation.navigation.FlashTradeNavGraph
@@ -39,6 +40,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var checkLoginStatusUseCase: CheckLoginStatusUseCase
+
+    @Inject
+    lateinit var prefetchManager: PrefetchManager
 
     /** App ready state - splash stays until true */
     private var isAppReady by mutableStateOf(false)
@@ -96,16 +100,21 @@ class MainActivity : ComponentActivity() {
 
     private fun checkAuthDuringSplash() {
         lifecycleScope.launch {
-            startDestination = when (val result = checkLoginStatusUseCase()) {
+            // Start prefetch in background (non-blocking)
+            launch { prefetchManager.prefetch() }
+
+            // Only wait for auth check (fast - reads from DataStore)
+            val authResult = checkLoginStatusUseCase()
+
+            startDestination = when (authResult) {
                 is Result.Success -> {
-                    val authState = result.data
+                    val authState = authResult.data
                     if (authState.isLoggedIn && authState.isSessionValid) {
                         TradingGraph
                     } else {
                         Login
                     }
                 }
-
                 is Result.Error -> Login
                 Result.Loading -> Login
             }

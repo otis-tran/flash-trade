@@ -39,6 +39,8 @@ class SwapViewModel @Inject constructor(
             is SwapEvent.SelectTokenFrom -> selectTokenFrom(event.token)
             is SwapEvent.SelectTokenTo -> selectTokenTo(event.token)
             is SwapEvent.SetAmount -> setAmount(event.amount)
+            is SwapEvent.SetSlippage -> setSlippage(event.slippage)
+            SwapEvent.ToggleSlippageSettings -> toggleSlippageSettings()
             SwapEvent.FetchQuote -> fetchQuote()
             SwapEvent.ExecuteSwap -> executeSwap()
             SwapEvent.SwapTokens -> swapTokens()
@@ -80,6 +82,14 @@ class SwapViewModel @Inject constructor(
         if (amount.isNotEmpty() && amount.toDoubleOrNull() == null) return
         setState { copy(amount = amount, quote = null) }
         fetchQuoteDebounced()
+    }
+
+    private fun setSlippage(slippage: Double) {
+        setState { copy(slippageTolerance = slippage, showSlippageSettings = false) }
+    }
+
+    private fun toggleSlippageSettings() {
+        setState { copy(showSlippageSettings = !showSlippageSettings) }
     }
 
     private fun swapTokens() {
@@ -135,11 +145,14 @@ class SwapViewModel @Inject constructor(
                 userAddress = walletAddress
             )) {
                 is Result.Success -> {
+                    // Calculate mock price impact (in production, get from quote API)
+                    val priceImpact = calculatePriceImpact(currentState.amount)
                     setState {
                         copy(
                             isLoadingQuote = false,
                             quote = result.data,
-                            quoteExpired = false
+                            quoteExpired = false,
+                            priceImpact = priceImpact
                         )
                     }
                     startAutoRefresh()
@@ -154,6 +167,17 @@ class SwapViewModel @Inject constructor(
                 }
                 Result.Loading -> { /* Already loading */ }
             }
+        }
+    }
+
+    private fun calculatePriceImpact(amount: String): Double {
+        // Mock price impact calculation - in production get from quote API
+        val amountDouble = amount.toDoubleOrNull() ?: 0.0
+        return when {
+            amountDouble > 10000 -> 5.5 // High impact for large trades
+            amountDouble > 1000 -> 1.2
+            amountDouble > 100 -> 0.5
+            else -> 0.1
         }
     }
 

@@ -34,6 +34,7 @@
 |       |   |               |   |   |-- SafeApiCall.kt
 |       |   |               |   |   `-- interceptor
 |       |   |               |   |       |-- AuthInterceptor.kt
+|       |   |               |   |       |-- ClientIdInterceptor.kt
 |       |   |               |   |       |-- LoggingInterceptor.kt
 |       |   |               |   |       |-- NetworkInterceptor.kt
 |       |   |               |   |       `-- ResponseInterceptor.kt
@@ -42,7 +43,9 @@
 |       |   |               |   |       |-- EmptyView.kt
 |       |   |               |   |       |-- ErrorMessage.kt
 |       |   |               |   |       |-- ErrorView.kt
-|       |   |               |   |       `-- LoadingIndicator.kt
+|       |   |               |   |       |-- LoadingIndicator.kt
+|       |   |               |   |       |-- NetworkSelectorBottomSheet.kt
+|       |   |               |   |       `-- TokenSelectorBottomSheet.kt
 |       |   |               |   `-- util
 |       |   |               |       |-- Constants.kt
 |       |   |               |       |-- DateUtils.kt
@@ -53,21 +56,27 @@
 |       |   |               |   |   |-- database
 |       |   |               |   |   `-- entity
 |       |   |               |   |-- mapper
+|       |   |               |   |   |-- SwapMapper.kt
 |       |   |               |   |   |-- TokenMapper.kt
 |       |   |               |   |   `-- UserMapper.kt
 |       |   |               |   |-- remote
 |       |   |               |   |   |-- api
-|       |   |               |   |   |   `-- KyberApiService.kt
+|       |   |               |   |   |   |-- KyberApiService.kt
+|       |   |               |   |   |   `-- KyberSwapApiService.kt
 |       |   |               |   |   |-- dto
 |       |   |               |   |   |   |-- AuthDto.kt
 |       |   |               |   |   |   |-- BaseResponse.kt
 |       |   |               |   |   |   `-- kyber
+|       |   |               |   |   |       |-- BuildRouteRequestDto.kt
+|       |   |               |   |   |       |-- BuildRouteResponseDto.kt
+|       |   |               |   |   |       |-- RouteResponseDto.kt
 |       |   |               |   |   |       `-- TokenListResponse.kt
 |       |   |               |   |   `-- request
 |       |   |               |   |       `-- AuthRequest.kt
 |       |   |               |   |-- repository
 |       |   |               |   |   |-- AuthRepositoryImpl.kt
 |       |   |               |   |   |-- SettingsRepositoryImpl.kt
+|       |   |               |   |   |-- SwapRepositoryImpl.kt
 |       |   |               |   |   `-- TokenRepositoryImpl.kt
 |       |   |               |   `-- service
 |       |   |               |       `-- PrivyAuthService.kt
@@ -77,17 +86,26 @@
 |       |   |               |   |-- NetworkModule.kt
 |       |   |               |   |-- PrivyProvider.kt
 |       |   |               |   |-- SettingsModule.kt
+|       |   |               |   |-- SwapModule.kt
 |       |   |               |   `-- TokenModule.kt
 |       |   |               |-- domain
+|       |   |               |   |-- manager
+|       |   |               |   |   |-- PrefetchManager.kt
+|       |   |               |   |   |-- QuoteCacheManager.kt
+|       |   |               |   |   `-- SwapAnalyticsManager.kt
 |       |   |               |   |-- model
 |       |   |               |   |   |-- AuthState.kt
+|       |   |               |   |   |-- EncodedSwap.kt
+|       |   |               |   |   |-- Quote.kt
 |       |   |               |   |   |-- Settings.kt
+|       |   |               |   |   |-- SwapResult.kt
 |       |   |               |   |   |-- Token.kt
 |       |   |               |   |   |-- User.kt
 |       |   |               |   |   `-- UserAuthState.kt
 |       |   |               |   |-- repository
 |       |   |               |   |   |-- AuthRepository.kt
 |       |   |               |   |   |-- SettingsRepository.kt
+|       |   |               |   |   |-- SwapRepository.kt
 |       |   |               |   |   `-- TokenRepository.kt
 |       |   |               |   `-- usecase
 |       |   |               |       |-- UseCase.kt
@@ -95,6 +113,9 @@
 |       |   |               |       |   |-- CheckLoginStatusUseCase.kt
 |       |   |               |       |   |-- LoginUseCase.kt
 |       |   |               |       |   `-- LogoutUseCase.kt
+|       |   |               |       |-- swap
+|       |   |               |       |   |-- ExecuteSwapUseCase.kt
+|       |   |               |       |   `-- GetSwapQuoteUseCase.kt
 |       |   |               |       `-- token
 |       |   |               |           |-- GetTokensUseCase.kt
 |       |   |               |           `-- SearchTokensUseCase.kt
@@ -124,6 +145,12 @@
 |       |   |               |   |   |       |-- NetworkConfirmDialog.kt
 |       |   |               |   |   |       |-- NetworkModeSection.kt
 |       |   |               |   |   |       `-- ThemeModeSection.kt
+|       |   |               |   |   |-- swap
+|       |   |               |   |   |   |-- SwapEffect.kt
+|       |   |               |   |   |   |-- SwapEvent.kt
+|       |   |               |   |   |   |-- SwapScreen.kt
+|       |   |               |   |   |   |-- SwapState.kt
+|       |   |               |   |   |   `-- SwapViewModel.kt
 |       |   |               |   |   `-- trading
 |       |   |               |   |       |-- TradingEffect.kt
 |       |   |               |   |       |-- TradingEvent.kt
@@ -200,7 +227,9 @@
 |   `-- system-architecture.md
 |-- documents
 |   |-- CHALLENGE.md
-|   `-- IDEA_CHALLENGE.md
+|   |-- IDEA_CHALLENGE.md
+|   |-- KyberSwapAggregator_EVMAPIs_v2.12.0.yaml
+|   `-- submission_and_vvaluation_guide.md
 |-- gradle
 |   |-- libs.versions.toml
 |   `-- wrapper
@@ -265,6 +294,24 @@
 |   |   |-- reports
 |   |   |-- research
 |   |   `-- scout
+|   |-- 251219-kyberswap-integration
+|   |   |-- phase-01-api-layer.md
+|   |   |-- phase-02-domain-layer.md
+|   |   |-- phase-03-data-layer.md
+|   |   |-- phase-04-presentation-layer.md
+|   |   |-- phase-05-navigation-integration.md
+|   |   |-- phase-06-optimization.md
+|   |   |-- plan.md
+|   |   |-- reports
+|   |   |   `-- 251220-from-code-reviewer-to-orchestrator-phase-01-api-layer-report.md
+|   |   |-- research
+|   |   |   |-- README.md
+|   |   |   |-- researcher-01-kyberswap-api.md
+|   |   |   `-- researcher-02-privy-wallet.md
+|   |   `-- scout
+|   |       `-- scout-01-codebase-files.md
+|   |-- 251220-token-prefetch-splash
+|   |   `-- plan.md
 |   |-- reports
 |   |   |-- 251212-code-reviewer-to-dev-phase01-review.md
 |   |   |-- 251212-docs-manager-initial-documentation-report.md
@@ -277,6 +324,8 @@
 |   |   |-- 251214-code-reviewer-mvi-architecture-review.md
 |   |   |-- 251214-code-reviewer-phase02-bottom-nav-review.md
 |   |   |-- 251214-mvi-architecture-test-report.md
+|   |   |-- 251220-tester-phase1-api-test-report.md
+|   |   |-- brainstorm-251219-kyberswap-integration.md
 |   |   |-- mvi-architecture-review.md
 |   |   |-- scout-android-app-structure-251212.md
 |   |   `-- scout-report.md
@@ -288,4 +337,4 @@
 |-- project_structure.txt
 `-- settings.gradle.kts
 
-97 directories, 191 files
+105 directories, 232 files

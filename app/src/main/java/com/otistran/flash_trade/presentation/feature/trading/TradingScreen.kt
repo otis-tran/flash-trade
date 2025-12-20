@@ -1,6 +1,9 @@
 package com.otistran.flash_trade.presentation.feature.trading
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,10 +24,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -33,7 +39,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -46,6 +51,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +66,12 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.otistran.flash_trade.core.ui.components.ErrorView
 import com.otistran.flash_trade.domain.model.Token
+import com.otistran.flash_trade.ui.theme.KyberTeal
+
+// Semantic colors
+private val SafeGreen = Color(0xFF00C853)
+private val RiskRed = Color(0xFFFF5252)
+private val WarningOrange = Color(0xFFFFB800)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,7 +82,6 @@ fun TradingScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // Handle effects
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
@@ -87,7 +100,6 @@ fun TradingScreen(
         color = MaterialTheme.colorScheme.background
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // TopAppBar
             CenterAlignedTopAppBar(
                 title = { Text("Trading") },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -96,8 +108,8 @@ fun TradingScreen(
                 windowInsets = WindowInsets(0, 0, 0, 0)
             )
 
-            // Search Bar
-            SearchBar(
+            // Glassmorphic Search Bar
+            GlassSearchBar(
                 query = state.searchQuery,
                 onQueryChange = { viewModel.onEvent(TradingEvent.Search(it)) },
                 modifier = Modifier
@@ -107,18 +119,14 @@ fun TradingScreen(
 
             // Content
             when {
-                state.isLoading && state.tokens.isEmpty() -> {
-                    LoadingContent()
-                }
+                state.isLoading && state.tokens.isEmpty() -> LoadingContent()
                 state.error != null && state.tokens.isEmpty() -> {
                     ErrorView(
                         message = state.error ?: "Unknown error",
                         onRetry = { viewModel.onEvent(TradingEvent.LoadTokens) }
                     )
                 }
-                state.isEmpty -> {
-                    EmptyContent()
-                }
+                state.isEmpty -> EmptyContent()
                 else -> {
                     TokenList(
                         tokens = state.displayTokens,
@@ -136,35 +144,72 @@ fun TradingScreen(
 }
 
 @Composable
-private fun SearchBar(
+private fun GlassSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
+    Card(
         modifier = modifier,
-        placeholder = { Text("Search tokens...") },
-        leadingIcon = {
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Icon(
                 imageVector = Icons.Default.Search,
-                contentDescription = "Search"
+                contentDescription = "Search",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
             )
-        },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = { onQueryChange("") }) {
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Box(modifier = Modifier.weight(1f)) {
+                if (query.isEmpty()) {
+                    Text(
+                        text = "Search tokens...",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    singleLine = true,
+                    cursorBrush = SolidColor(KyberTeal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            AnimatedVisibility(
+                visible = query.isNotEmpty(),
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                IconButton(
+                    onClick = { onQueryChange("") },
+                    modifier = Modifier.size(24.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Clear"
+                        contentDescription = "Clear",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
-        },
-        singleLine = true,
-        shape = RoundedCornerShape(12.dp)
-    )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -180,7 +225,6 @@ private fun TokenList(
 ) {
     val listState = rememberLazyListState()
 
-    // Trigger load more when reaching end
     val shouldLoadMore by remember {
         derivedStateOf {
             val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -205,17 +249,10 @@ private fun TokenList(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(
-                items = tokens,
-                key = { it.address }
-            ) { token ->
-                TokenCard(
-                    token = token,
-                    onClick = { onTokenClick(token) }
-                )
+            items(items = tokens, key = { it.address }) { token ->
+                TokenCard(token = token, onClick = { onTokenClick(token) })
             }
 
-            // Loading more indicator
             if (isLoadingMore) {
                 item {
                     Box(
@@ -226,7 +263,8 @@ private fun TokenList(
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
+                            strokeWidth = 2.dp,
+                            color = KyberTeal
                         )
                     }
                 }
@@ -246,7 +284,7 @@ private fun TokenCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Row(
@@ -255,14 +293,34 @@ private fun TokenCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Token Logo
-            TokenLogo(
-                logoUrl = token.logoUrl,
-                symbol = token.symbol,
-                modifier = Modifier.size(48.dp)
-            )
+            // Token Logo with gradient border for verified
+            Box {
+                TokenLogo(
+                    logoUrl = token.logoUrl,
+                    symbol = token.symbol,
+                    modifier = Modifier.size(48.dp)
+                )
+                // Verified badge
+                if (token.isVerified) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Verified,
+                            contentDescription = "Verified",
+                            modifier = Modifier.size(14.dp),
+                            tint = KyberTeal
+                        )
+                    }
+                }
+            }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             // Token Info
             Column(modifier = Modifier.weight(1f)) {
@@ -274,16 +332,6 @@ private fun TokenCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-
-                    if (token.isVerified) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.Verified,
-                            contentDescription = "Verified",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
                 }
 
                 Spacer(modifier = Modifier.height(2.dp))
@@ -299,15 +347,24 @@ private fun TokenCard(
 
             // TVL & Status
             Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = token.formattedTvl,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.TrendingUp,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = token.formattedTvl,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-                TokenStatusChip(token = token)
+                TokenStatusBadge(token = token)
             }
         }
     }
@@ -330,11 +387,17 @@ private fun TokenLogo(
             contentScale = ContentScale.Crop
         )
     } else {
-        // Placeholder
         Box(
             modifier = modifier
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    )
+                ),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -348,20 +411,67 @@ private fun TokenLogo(
 }
 
 @Composable
-private fun TokenStatusChip(token: Token) {
-    val (text, color) = when {
-        token.isHoneypot -> "⚠️ Risk" to MaterialTheme.colorScheme.error
-        token.isSafe -> "✓ Safe" to MaterialTheme.colorScheme.primary
-        token.isWhitelisted -> "Listed" to MaterialTheme.colorScheme.tertiary
-        else -> "${token.poolCount} pools" to MaterialTheme.colorScheme.onSurfaceVariant
+private fun TokenStatusBadge(token: Token) {
+    val (text, bgColor, textColor, icon) = when {
+        token.isHoneypot -> StatusBadgeData(
+            "Risk",
+            RiskRed.copy(alpha = 0.15f),
+            RiskRed,
+            Icons.Default.Warning
+        )
+        token.isSafe -> StatusBadgeData(
+            "Safe",
+            SafeGreen.copy(alpha = 0.15f),
+            SafeGreen,
+            Icons.Default.Verified
+        )
+        token.isWhitelisted -> StatusBadgeData(
+            "Listed",
+            KyberTeal.copy(alpha = 0.15f),
+            KyberTeal,
+            null
+        )
+        else -> StatusBadgeData(
+            "${token.poolCount} pools",
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurfaceVariant,
+            null
+        )
     }
 
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        color = color
-    )
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = bgColor
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            icon?.let {
+                Icon(
+                    imageVector = it,
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
+                    tint = textColor
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = textColor
+            )
+        }
+    }
 }
+
+private data class StatusBadgeData(
+    val text: String,
+    val bgColor: Color,
+    val textColor: Color,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector?
+)
 
 @Composable
 private fun LoadingContent() {
@@ -370,7 +480,7 @@ private fun LoadingContent() {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(color = KyberTeal)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "Loading tokens...",
@@ -387,10 +497,19 @@ private fun EmptyContent() {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "No tokens found",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "No tokens found",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

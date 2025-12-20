@@ -8,6 +8,8 @@ sealed interface SwapEvent : UiEvent {
     data class SelectTokenFrom(val token: Token) : SwapEvent
     data class SelectTokenTo(val token: Token) : SwapEvent
     data class SetAmount(val amount: String) : SwapEvent
+    data class SetSlippage(val slippage: Double) : SwapEvent
+    data object ToggleSlippageSettings : SwapEvent
     data object FetchQuote : SwapEvent
     data object ExecuteSwap : SwapEvent
     data object SwapTokens : SwapEvent

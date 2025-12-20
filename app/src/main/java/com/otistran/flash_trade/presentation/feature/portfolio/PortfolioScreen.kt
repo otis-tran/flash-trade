@@ -3,7 +3,11 @@ package com.otistran.flash_trade.presentation.feature.portfolio
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,15 +28,22 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallMade
+import androidx.compose.material.icons.automirrored.filled.CallReceived
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Token
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -56,7 +68,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import com.otistran.flash_trade.core.ui.components.LoadingIndicator
+import com.otistran.flash_trade.domain.model.NetworkMode
+import com.otistran.flash_trade.ui.theme.KyberTeal
+
+private val PriceUp = Color(0xFF00C853)
+private val PriceDown = Color(0xFFFF5252)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,7 +87,6 @@ fun PortfolioScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // Handle effects
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
@@ -75,10 +94,13 @@ fun PortfolioScreen(
                     Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
                 }
                 is PortfolioEffect.CopyToClipboard -> {
-                    val clipboard =
-                        context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     val clip = ClipData.newPlainText("Wallet Address", effect.text)
                     clipboard.setPrimaryClip(clip)
+                }
+                is PortfolioEffect.OpenExplorerTx -> {
+                    val url = "${effect.explorerUrl}/tx/${effect.txHash}"
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                 }
             }
         }
@@ -89,7 +111,6 @@ fun PortfolioScreen(
         color = MaterialTheme.colorScheme.background
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Top App Bar
             CenterAlignedTopAppBar(
                 title = { Text("Portfolio") },
                 actions = {
@@ -97,10 +118,7 @@ fun PortfolioScreen(
                         onClick = { viewModel.onEvent(PortfolioEvent.RefreshPortfolio) },
                         enabled = state.canRefresh
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh"
-                        )
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -110,15 +128,8 @@ fun PortfolioScreen(
             )
 
             when {
-                state.isLoading -> {
-                    LoadingIndicator(modifier = Modifier.fillMaxSize())
-                }
-                else -> {
-                    PortfolioContent(
-                        state = state,
-                        onEvent = viewModel::onEvent
-                    )
-                }
+                state.isLoading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
+                else -> PortfolioContent(state = state, onEvent = viewModel::onEvent)
             }
         }
     }
@@ -140,181 +151,174 @@ private fun PortfolioContent(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Wallet Card
-            item {
-                WalletCard(
-                    state = state,
-                    onCopyAddress = { onEvent(PortfolioEvent.CopyWalletAddress) },
-                    onNetworkClick = { /* TODO: Show network selector */ }
-                )
-            }
+            item { WalletAddressCard(state = state, onEvent = onEvent) }
+            item { BalanceCard(state = state, onEvent = onEvent) }
 
-            // Balance Card
-            item {
-                BalanceCard(state = state)
-            }
-
-            // Tokens Section Header
             item {
                 Text(
-                    text = "Assets",
+                    text = "Holdings",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
 
-            // Token List
             if (state.tokens.isEmpty()) {
-                item {
-                    EmptyTokensPlaceholder()
-                }
+                item { EmptyTokensPlaceholder() }
             } else {
-                items(
-                    items = state.tokens,
-                    key = { it.symbol }
-                ) { token ->
-                    TokenItem(token = token)
+                items(items = state.tokens, key = { it.symbol }) { token ->
+                    TokenHoldingItem(token = token)
                 }
             }
-        }
-    }
-}
 
-@Composable
-private fun WalletCard(
-    state: PortfolioState,
-    onCopyAddress: () -> Unit,
-    onNetworkClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Avatar
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.tertiary
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Avatar",
-                    modifier = Modifier.size(36.dp),
-                    tint = Color.White
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // User Name
-            Text(
-                text = state.userName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Network Selector
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .clickable { onNetworkClick() }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (state.selectedNetwork == Network.ETHEREUM)
-                                Color(0xFF627EEA)
-                            else
-                                Color(0xFF9945FF)
-                        )
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = state.selectedNetwork.displayName,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Wallet Address
-            if (state.hasWallet) {
+            item {
                 Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .clickable { onCopyAddress() }
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = state.displayShortAddress ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = "Recent Activity",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Icon(
-                        imageVector = Icons.Default.ContentCopy,
-                        contentDescription = "Copy",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                        imageVector = Icons.Outlined.History,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-            } else {
-                Text(
-                    text = "No wallet connected",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
+
+            if (state.transactions.isEmpty()) {
+                item { EmptyTransactionsPlaceholder() }
+            } else {
+                state.groupedTransactions.forEach { (dateGroup, transactions) ->
+                    item {
+                        Text(
+                            text = dateGroup,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                        )
+                    }
+                    items(items = transactions, key = { it.hash }) { tx ->
+                        TransactionItem(
+                            transaction = tx,
+                            walletAddress = state.walletAddress ?: "",
+                            onClick = { onEvent(PortfolioEvent.OpenTransactionDetails(tx.hash)) }
+                        )
+                    }
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 }
 
 @Composable
-private fun BalanceCard(
+private fun WalletAddressCard(
     state: PortfolioState,
+    onEvent: (PortfolioEvent) -> Unit
+) {
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Network Label (read-only, không clickable)
+            NetworkLabel(network = state.currentNetwork)
+
+            // Wallet Address
+            if (state.hasWallet) {
+                Surface(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onEvent(PortfolioEvent.CopyWalletAddress) },
+                    color = MaterialTheme.colorScheme.surface
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = state.displayShortAddress ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Copy",
+                            modifier = Modifier.size(14.dp),
+                            tint = KyberTeal
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Network label hiển thị network hiện tại (read-only).
+ * Không có click action - user phải vào Settings để đổi network.
+ */
+@Composable
+private fun NetworkLabel(
+    network: NetworkMode,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+    Surface(
+        modifier = modifier.clip(RoundedCornerShape(20.dp)),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(Color(network.iconColor))
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = network.displayName,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BalanceCard(
+    state: PortfolioState,
+    onEvent: (PortfolioEvent) -> Unit
+) {
+    val priceChangeColor by animateColorAsState(
+        targetValue = if (state.isPriceUp) PriceUp else PriceDown,
+        animationSpec = tween(300),
+        label = "priceColor"
+    )
+
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        gradient = Brush.verticalGradient(
+            colors = listOf(
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+            )
         )
     ) {
         Column(
@@ -333,8 +337,8 @@ private fun BalanceCard(
 
             Text(
                 text = state.formattedTotalBalance,
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontSize = 36.sp,
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontSize = 42.sp,
                     fontWeight = FontWeight.Bold
                 ),
                 color = MaterialTheme.colorScheme.onSurface
@@ -343,28 +347,72 @@ private fun BalanceCard(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "${state.formattedEthBalance} ETH",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = state.formattedPriceChange,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = priceChangeColor
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Timeframe.entries.forEach { timeframe ->
+                    TimeframeChip(
+                        timeframe = timeframe,
+                        isSelected = state.selectedTimeframe == timeframe,
+                        onClick = { onEvent(PortfolioEvent.SelectTimeframe(timeframe)) }
+                    )
+                    if (timeframe != Timeframe.entries.last()) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                }
+            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TokenItem(
-    token: TokenHolding,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit = {}
+private fun TimeframeChip(
+    timeframe: Timeframe,
+    isSelected: Boolean,
+    onClick: () -> Unit
 ) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+    FilterChip(
+        selected = isSelected,
+        onClick = onClick,
+        label = {
+            Text(
+                text = timeframe.label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+            )
+        },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = KyberTeal.copy(alpha = 0.2f),
+            selectedLabelColor = KyberTeal
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = isSelected,
+            borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+            selectedBorderColor = KyberTeal
         )
+    )
+}
+
+@Composable
+private fun TokenHoldingItem(token: TokenHolding) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier
@@ -372,31 +420,10 @@ private fun TokenItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Token Icon
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(
-                        when (token.symbol) {
-                            "ETH" -> Color(0xFF627EEA)
-                            "SOL" -> Color(0xFF9945FF)
-                            else -> MaterialTheme.colorScheme.primaryContainer
-                        }
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = token.symbol.take(1),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
+            TokenIcon(symbol = token.symbol, iconUrl = token.iconUrl)
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Token Info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = token.name,
@@ -416,12 +443,11 @@ private fun TokenItem(
                         text = token.formattedPriceChange,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
-                        color = if (token.isPriceUp) Color(0xFF00C853) else Color(0xFFFF5252)
+                        color = if (token.isPriceUp) PriceUp else PriceDown
                     )
                 }
             }
 
-            // Balance
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = token.formattedBalanceUsd,
@@ -439,15 +465,165 @@ private fun TokenItem(
 }
 
 @Composable
-private fun EmptyTokensPlaceholder(
-    modifier: Modifier = Modifier
+private fun TokenIcon(
+    symbol: String,
+    iconUrl: String?,
+    modifier: Modifier = Modifier.size(44.dp)
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+    if (iconUrl != null) {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(iconUrl)
+                .crossfade(true)
+                .build(),
+            contentDescription = symbol,
+            modifier = modifier.clip(CircleShape),
+            contentScale = ContentScale.Crop
         )
+    } else {
+        val bgColor = when (symbol) {
+            "ETH" -> Color(0xFF627EEA)
+            "SOL" -> Color(0xFF9945FF)
+            "BTC" -> Color(0xFFF7931A)
+            else -> MaterialTheme.colorScheme.primaryContainer
+        }
+        Box(
+            modifier = modifier
+                .clip(CircleShape)
+                .background(bgColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = symbol.take(1),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
+    }
+}
+
+@Composable
+private fun TransactionItem(
+    transaction: Transaction,
+    walletAddress: String,
+    onClick: () -> Unit
+) {
+    val isOutgoing = transaction.from.equals(walletAddress, ignoreCase = true)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when (transaction.txType) {
+                            TransactionType.SWAP -> KyberTeal.copy(alpha = 0.15f)
+                            else -> if (isOutgoing)
+                                PriceDown.copy(alpha = 0.15f)
+                            else
+                                PriceUp.copy(alpha = 0.15f)
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = when (transaction.txType) {
+                        TransactionType.SWAP -> Icons.Default.SwapHoriz
+                        else -> if (isOutgoing)
+                            Icons.AutoMirrored.Filled.CallMade
+                        else
+                            Icons.AutoMirrored.Filled.CallReceived
+                    },
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = when (transaction.txType) {
+                        TransactionType.SWAP -> KyberTeal
+                        else -> if (isOutgoing) PriceDown else PriceUp
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = when (transaction.txType) {
+                            TransactionType.SWAP -> "Swap"
+                            TransactionType.ERC20_TRANSFER -> transaction.tokenSymbol ?: "Token"
+                            else -> if (isOutgoing) "Sent" else "Received"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        imageVector = when (transaction.status) {
+                            TransactionStatus.SUCCESS -> Icons.Default.CheckCircle
+                            TransactionStatus.FAILED -> Icons.Default.Error
+                            TransactionStatus.PENDING -> Icons.Default.Refresh
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = when (transaction.status) {
+                            TransactionStatus.SUCCESS -> PriceUp
+                            TransactionStatus.FAILED -> PriceDown
+                            TransactionStatus.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+                Text(
+                    text = if (isOutgoing) "To: ${transaction.shortTo}" else "From: ${transaction.shortFrom}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "${if (isOutgoing) "-" else "+"}${transaction.formattedValue} ETH",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isOutgoing) PriceDown else PriceUp
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = transaction.formattedTime,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                        contentDescription = "View on Explorer",
+                        modifier = Modifier.size(12.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyTokensPlaceholder() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier
@@ -461,24 +637,75 @@ private fun EmptyTokensPlaceholder(
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
             )
-
             Spacer(modifier = Modifier.height(16.dp))
-
             Text(
                 text = "No tokens yet",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-
             Spacer(modifier = Modifier.height(4.dp))
-
             Text(
                 text = "Your tokens will appear here",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center
             )
+        }
+    }
+}
+
+@Composable
+private fun EmptyTransactionsPlaceholder() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.History,
+                contentDescription = null,
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "No transactions yet",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun GlassCard(
+    modifier: Modifier = Modifier,
+    gradient: Brush? = null,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        )
+    ) {
+        Box(
+            modifier = if (gradient != null) {
+                Modifier.background(gradient)
+            } else {
+                Modifier
+            }
+        ) {
+            content()
         }
     }
 }
