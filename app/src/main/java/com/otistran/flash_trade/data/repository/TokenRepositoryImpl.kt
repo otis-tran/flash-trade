@@ -1,7 +1,15 @@
 package com.otistran.flash_trade.data.repository
 
+import androidx.paging.ExperimentalPagingApi
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.map
+import com.otistran.flash_trade.data.local.database.FlashTradeDatabase
+import com.otistran.flash_trade.data.local.database.dao.TokenDao
 import com.otistran.flash_trade.data.mapper.TokenMapper.toDomain
 import com.otistran.flash_trade.data.mapper.TokenMapper.toDomainList
+import com.otistran.flash_trade.data.paging.TokenRemoteMediator
 import com.otistran.flash_trade.data.remote.api.KyberApiService
 import com.otistran.flash_trade.domain.model.Token
 import com.otistran.flash_trade.domain.model.TokenFilter
@@ -12,12 +20,15 @@ import com.otistran.flash_trade.util.Result
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class TokenRepositoryImpl @Inject constructor(
-    private val kyberApi: KyberApiService
+    private val kyberApi: KyberApiService,
+    private val database: FlashTradeDatabase,
+    private val tokenDao: TokenDao
 ) : TokenRepository {
 
     // In-memory cache
@@ -137,4 +148,34 @@ class TokenRepositoryImpl @Inject constructor(
     }
 
     override fun observeTokens(): Flow<List<Token>> = _cachedTokens.asStateFlow()
+
+    // ==================== Paging 3 Support ====================
+
+    /**
+     * Get paginated token stream using Paging 3.
+     * Offline-first with automatic network sync via RemoteMediator.
+     *
+     * @param filter Token filter criteria (minTvl, sort, etc.)
+     * @return Flow of PagingData for Compose UI (LazyPagingItems)
+     */
+    @OptIn(ExperimentalPagingApi::class)
+    override fun getPagedTokens(filter: TokenFilter): Flow<PagingData<Token>> {
+        return Pager(
+            config = PagingConfig(
+                pageSize = filter.limit,
+                prefetchDistance = 20,
+                enablePlaceholders = false,
+                initialLoadSize = filter.limit * 2,
+                maxSize = 500
+            ),
+            remoteMediator = TokenRemoteMediator(
+                filter = filter,
+                database = database,
+                kyberApi = kyberApi
+            ),
+            pagingSourceFactory = { tokenDao.pagingSource() }
+        ).flow.map { pagingData ->
+            pagingData.map { entity -> entity.toDomain() }
+        }
+    }
 }

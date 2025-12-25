@@ -1,15 +1,20 @@
 package com.otistran.flash_trade.presentation.feature.trading
 
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import com.otistran.flash_trade.core.base.BaseViewModel
 import com.otistran.flash_trade.domain.model.Token
 import com.otistran.flash_trade.domain.model.TokenFilter
+import com.otistran.flash_trade.domain.model.TokenSortOrder
 import com.otistran.flash_trade.domain.repository.TokenRepository
+import com.otistran.flash_trade.domain.usecase.token.GetPagedTokensUseCase
 import com.otistran.flash_trade.domain.usecase.token.GetTokensUseCase
 import com.otistran.flash_trade.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -17,10 +22,27 @@ import javax.inject.Inject
 @HiltViewModel
 class TradingViewModel @Inject constructor(
     private val getTokensUseCase: GetTokensUseCase,
+    private val getPagedTokensUseCase: GetPagedTokensUseCase,
     private val tokenRepository: TokenRepository
 ) : BaseViewModel<TradingState, TradingEvent, TradingEffect>(
     initialState = TradingState()
 ) {
+
+    // ==================== Paging 3 Support ====================
+
+    /**
+     * Paginated token stream using Paging 3.
+     * cachedIn(viewModelScope) ensures pagination survives config changes.
+     */
+    val pagingTokens: Flow<PagingData<Token>> = getPagedTokensUseCase(
+        filter = TokenFilter(
+            minTvl = 10000.0,
+            sort = TokenSortOrder.TVL_DESC,
+            limit = 100
+        )
+    ).cachedIn(viewModelScope)
+
+    // ==================== Legacy Support ====================
 
     private var searchJob: Job? = null
 

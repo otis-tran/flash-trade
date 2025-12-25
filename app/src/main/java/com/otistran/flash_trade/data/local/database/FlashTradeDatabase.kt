@@ -2,18 +2,26 @@ package com.otistran.flash_trade.data.local.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import com.otistran.flash_trade.data.local.database.dao.TokenDao
 import com.otistran.flash_trade.data.local.database.dao.TransactionDao
+import com.otistran.flash_trade.data.local.entity.TokenEntity
+import com.otistran.flash_trade.data.local.entity.TokenRemoteKeysEntity
 import com.otistran.flash_trade.data.local.entity.TransactionEntity
 
 /**
  * Room database for Flash Trade app.
- * Caches transaction data for offline-first portfolio experience.
+ * Caches transaction and token data for offline-first experience.
  */
 @Database(
-    entities = [TransactionEntity::class],
-    version = 1,
+    entities = [
+        TransactionEntity::class,
+        TokenEntity::class,
+        TokenRemoteKeysEntity::class
+    ],
+    version = 2,
     exportSchema = false
 )
 abstract class FlashTradeDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
+    abstract fun tokenDao(): TokenDao
 }

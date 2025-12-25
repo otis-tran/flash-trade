@@ -3,6 +3,7 @@ package com.otistran.flash_trade.di
 import android.content.Context
 import androidx.room.Room
 import com.otistran.flash_trade.data.local.database.FlashTradeDatabase
+import com.otistran.flash_trade.data.local.database.dao.TokenDao
 import com.otistran.flash_trade.data.local.database.dao.TransactionDao
 import dagger.Module
 import dagger.Provides
@@ -35,5 +36,10 @@ object DatabaseModule {
     @Provides
     fun provideTransactionDao(database: FlashTradeDatabase): TransactionDao {
         return database.transactionDao()
+    }
+
+    @Provides
+    fun provideTokenDao(database: FlashTradeDatabase): TokenDao {
+        return database.tokenDao()
     }
 }

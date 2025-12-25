@@ -20,17 +20,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -45,9 +43,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +57,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.paging.LoadState
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemKey
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
@@ -80,6 +80,7 @@ fun TradingScreen(
     onNavigateToTradeDetails: (String) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val tokens = viewModel.pagingTokens.collectAsLazyPagingItems()
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
@@ -117,28 +118,12 @@ fun TradingScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
-            // Content
-            when {
-                state.isLoading && state.tokens.isEmpty() -> LoadingContent()
-                state.error != null && state.tokens.isEmpty() -> {
-                    ErrorView(
-                        message = state.error ?: "Unknown error",
-                        onRetry = { viewModel.onEvent(TradingEvent.LoadTokens) }
-                    )
-                }
-                state.isEmpty -> EmptyContent()
-                else -> {
-                    TokenList(
-                        tokens = state.displayTokens,
-                        isRefreshing = state.isLoading,
-                        isLoadingMore = state.isLoadingMore,
-                        hasMore = state.hasMore,
-                        onRefresh = { viewModel.onEvent(TradingEvent.Refresh) },
-                        onLoadMore = { viewModel.onEvent(TradingEvent.LoadMore) },
-                        onTokenClick = { viewModel.onEvent(TradingEvent.SelectToken(it)) }
-                    )
-                }
-            }
+            // Content with Paging 3
+            PagingTokenList(
+                tokens = tokens,
+                searchQuery = state.searchQuery,
+                onTokenClick = { viewModel.onEvent(TradingEvent.SelectToken(it)) }
+            )
         }
     }
 }
@@ -212,60 +197,104 @@ private fun GlassSearchBar(
     }
 }
 
+/**
+ * Paging 3 token list with LoadState handling.
+ * Supports pull-to-refresh, infinite scroll, and client-side filtering.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TokenList(
-    tokens: List<Token>,
-    isRefreshing: Boolean,
-    isLoadingMore: Boolean,
-    hasMore: Boolean,
-    onRefresh: () -> Unit,
-    onLoadMore: () -> Unit,
+private fun PagingTokenList(
+    tokens: LazyPagingItems<Token>,
+    searchQuery: String,
     onTokenClick: (Token) -> Unit
 ) {
-    val listState = rememberLazyListState()
-
-    val shouldLoadMore by remember {
-        derivedStateOf {
-            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            lastVisibleItem >= tokens.size - 5 && hasMore && !isLoadingMore
-        }
-    }
-
-    LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore) {
-            onLoadMore()
-        }
-    }
-
     PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = onRefresh,
+        isRefreshing = tokens.loadState.refresh is LoadState.Loading,
+        onRefresh = { tokens.refresh() },
         modifier = Modifier.fillMaxSize()
     ) {
-        LazyColumn(
-            state = listState,
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(items = tokens, key = { it.address }) { token ->
-                TokenCard(token = token, onClick = { onTokenClick(token) })
+        when {
+            // Initial loading
+            tokens.loadState.refresh is LoadState.Loading && tokens.itemCount == 0 -> {
+                LoadingContent()
             }
 
-            if (isLoadingMore) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp,
-                            color = KyberTeal
-                        )
+            // Error on initial load
+            tokens.loadState.refresh is LoadState.Error && tokens.itemCount == 0 -> {
+                val error = (tokens.loadState.refresh as LoadState.Error).error
+                ErrorView(
+                    message = error.localizedMessage ?: "Failed to load tokens",
+                    onRetry = { tokens.retry() }
+                )
+            }
+
+            // Empty state
+            tokens.loadState.refresh is LoadState.NotLoading && tokens.itemCount == 0 -> {
+                EmptyContent()
+            }
+
+            // Success - show list
+            else -> {
+                LazyColumn(
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(
+                        count = tokens.itemCount,
+                        key = tokens.itemKey { it.address }
+                    ) { index ->
+                        val token = tokens[index]
+                        if (token != null) {
+                            // Client-side search filtering
+                            val matchesSearch = searchQuery.isBlank() ||
+                                token.name.contains(searchQuery, ignoreCase = true) ||
+                                token.symbol.contains(searchQuery, ignoreCase = true)
+
+                            if (matchesSearch) {
+                                TokenCard(
+                                    token = token,
+                                    onClick = { onTokenClick(token) }
+                                )
+                            }
+                        }
+                    }
+
+                    // Append loading indicator
+                    if (tokens.loadState.append is LoadState.Loading) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp,
+                                    color = KyberTeal
+                                )
+                            }
+                        }
+                    }
+
+                    // Append error indicator
+                    if (tokens.loadState.append is LoadState.Error) {
+                        item {
+                            val error = (tokens.loadState.append as LoadState.Error).error
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Error: ${error.localizedMessage}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = RiskRed
+                                )
+                            }
+                        }
                     }
                 }
             }
