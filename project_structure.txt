@@ -2,12 +2,12 @@
 |-- CLAUDE.md
 |-- README.md
 |-- app
-|   |-- build.gradle.kts
-|   |-- proguard-rules.pro
-|   `-- src
-|       |-- androidTest
-|       |   `-- java
-|       |       `-- com
+|   |               `-- build.gradle.kts
+|   |               `-- proguard-rules.pro
+|                   `-- src
+|       |           `-- androidTest
+|       |           `-- java
+|       |           `-- com
 |       |           `-- otistran
 |       |               `-- flash_trade
 |       |                   `-- ExampleInstrumentedTest.kt
@@ -49,23 +49,35 @@
 |       |   |               |   `-- util
 |       |   |               |       |-- Constants.kt
 |       |   |               |       |-- DateUtils.kt
-|       |   |               |       `-- Extensions.kt
+|       |   |               |       |-- Extensions.kt
+|       |   |               |       `-- QRCodeGenerator.kt
 |       |   |               |-- data
 |       |   |               |   |-- local
 |       |   |               |   |   |-- dao
 |       |   |               |   |   |-- database
+|       |   |               |   |   |   |-- FlashTradeDatabase.kt
+|       |   |               |   |   |   `-- dao
+|       |   |               |   |   |       `-- TransactionDao.kt
 |       |   |               |   |   `-- entity
+|       |   |               |   |       `-- TransactionEntity.kt
 |       |   |               |   |-- mapper
+|       |   |               |   |   |-- EtherscanMapper.kt
 |       |   |               |   |   |-- SwapMapper.kt
 |       |   |               |   |   |-- TokenMapper.kt
 |       |   |               |   |   `-- UserMapper.kt
 |       |   |               |   |-- remote
 |       |   |               |   |   |-- api
+|       |   |               |   |   |   |-- EtherscanApiService.kt
 |       |   |               |   |   |   |-- KyberApiService.kt
 |       |   |               |   |   |   `-- KyberSwapApiService.kt
 |       |   |               |   |   |-- dto
 |       |   |               |   |   |   |-- AuthDto.kt
 |       |   |               |   |   |   |-- BaseResponse.kt
+|       |   |               |   |   |   |-- etherscan
+|       |   |               |   |   |   |   |-- BalanceResponseDto.kt
+|       |   |               |   |   |   |   |-- EtherscanBaseResponse.kt
+|       |   |               |   |   |   |   |-- TokenTxDto.kt
+|       |   |               |   |   |   |   `-- TxDto.kt
 |       |   |               |   |   |   `-- kyber
 |       |   |               |   |   |       |-- BuildRouteRequestDto.kt
 |       |   |               |   |   |       |-- BuildRouteResponseDto.kt
@@ -75,6 +87,7 @@
 |       |   |               |   |       `-- AuthRequest.kt
 |       |   |               |   |-- repository
 |       |   |               |   |   |-- AuthRepositoryImpl.kt
+|       |   |               |   |   |-- PortfolioRepositoryImpl.kt
 |       |   |               |   |   |-- SettingsRepositoryImpl.kt
 |       |   |               |   |   |-- SwapRepositoryImpl.kt
 |       |   |               |   |   `-- TokenRepositoryImpl.kt
@@ -83,7 +96,9 @@
 |       |   |               |-- di
 |       |   |               |   |-- AppModule.kt
 |       |   |               |   |-- AuthModule.kt
+|       |   |               |   |-- DatabaseModule.kt
 |       |   |               |   |-- NetworkModule.kt
+|       |   |               |   |-- PortfolioModule.kt
 |       |   |               |   |-- PrivyProvider.kt
 |       |   |               |   |-- SettingsModule.kt
 |       |   |               |   |-- SwapModule.kt
@@ -104,6 +119,7 @@
 |       |   |               |   |   `-- UserAuthState.kt
 |       |   |               |   |-- repository
 |       |   |               |   |   |-- AuthRepository.kt
+|       |   |               |   |   |-- PortfolioRepository.kt
 |       |   |               |   |   |-- SettingsRepository.kt
 |       |   |               |   |   |-- SwapRepository.kt
 |       |   |               |   |   `-- TokenRepository.kt
@@ -113,6 +129,11 @@
 |       |   |               |       |   |-- CheckLoginStatusUseCase.kt
 |       |   |               |       |   |-- LoginUseCase.kt
 |       |   |               |       |   `-- LogoutUseCase.kt
+|       |   |               |       |-- portfolio
+|       |   |               |       |   |-- GetBalanceUseCase.kt
+|       |   |               |       |   |-- GetPortfolioDataUseCase.kt
+|       |   |               |       |   |-- GetTokenHoldingsUseCase.kt
+|       |   |               |       |   `-- GetTransactionsUseCase.kt
 |       |   |               |       |-- swap
 |       |   |               |       |   |-- ExecuteSwapUseCase.kt
 |       |   |               |       |   `-- GetSwapQuoteUseCase.kt
@@ -132,7 +153,9 @@
 |       |   |               |   |   |   |-- PortfolioEvent.kt
 |       |   |               |   |   |   |-- PortfolioScreen.kt
 |       |   |               |   |   |   |-- PortfolioState.kt
-|       |   |               |   |   |   `-- PortfolioViewModel.kt
+|       |   |               |   |   |   |-- PortfolioViewModel.kt
+|       |   |               |   |   |   `-- components
+|       |   |               |   |   |       `-- QRCodeView.kt
 |       |   |               |   |   |-- settings
 |       |   |               |   |   |   |-- SettingsEffect.kt
 |       |   |               |   |   |   |-- SettingsEvent.kt
@@ -142,7 +165,6 @@
 |       |   |               |   |   |   `-- components
 |       |   |               |   |   |       |-- LogoutConfirmSheet.kt
 |       |   |               |   |   |       |-- LogoutSection.kt
-|       |   |               |   |   |       |-- NetworkConfirmDialog.kt
 |       |   |               |   |   |       |-- NetworkModeSection.kt
 |       |   |               |   |   |       `-- ThemeModeSection.kt
 |       |   |               |   |   |-- swap
@@ -221,8 +243,10 @@
 |   `-- startup_results_20251216_230855.txt
 |-- build.gradle.kts
 |-- docs
+|   |-- actual_response_api_tokens.js
 |   |-- code-standards.md
 |   |-- codebase-summary.md
+|   |-- kd-market-service-api.md
 |   |-- project-overview-pdr.md
 |   `-- system-architecture.md
 |-- documents
@@ -312,6 +336,19 @@
 |   |       `-- scout-01-codebase-files.md
 |   |-- 251220-token-prefetch-splash
 |   |   `-- plan.md
+|   |-- 251225-portfolio-feature
+|   |   |-- phase-01-etherscan-api-integration.md
+|   |   |-- phase-02-portfolio-repository.md
+|   |   |-- phase-03-caching-strategy.md
+|   |   |-- phase-04-viewmodel-integration.md
+|   |   |-- phase-05-qr-code-feature.md
+|   |   |-- plan.md
+|   |   |-- reports
+|   |   |-- research
+|   |   |   |-- researcher-01-etherscan-api.md
+|   |   |   `-- researcher-02-android-performance.md
+|   |   `-- scout
+|   |       `-- scout-01-portfolio-files.md
 |   |-- reports
 |   |   |-- 251212-code-reviewer-to-dev-phase01-review.md
 |   |   |-- 251212-docs-manager-initial-documentation-report.md
@@ -325,6 +362,7 @@
 |   |   |-- 251214-code-reviewer-phase02-bottom-nav-review.md
 |   |   |-- 251214-mvi-architecture-test-report.md
 |   |   |-- 251220-tester-phase1-api-test-report.md
+|   |   |-- 251225-portfolio-feature-plan.md
 |   |   |-- brainstorm-251219-kyberswap-integration.md
 |   |   |-- mvi-architecture-review.md
 |   |   |-- scout-android-app-structure-251212.md
@@ -337,4 +375,4 @@
 |-- project_structure.txt
 `-- settings.gradle.kts
 
-105 directories, 232 files
+113 directories, 262 files
