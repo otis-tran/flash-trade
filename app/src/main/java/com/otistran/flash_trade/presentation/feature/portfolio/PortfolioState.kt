@@ -196,6 +196,17 @@ enum class TransactionType {
     ERC20_TRANSFER
 }
 
+/**
+ * Display name for transaction type in UI.
+ */
+val TransactionType.displayName: String
+    get() = when (this) {
+        TransactionType.TRANSFER -> "Transfer"
+        TransactionType.SWAP -> "Swap"
+        TransactionType.CONTRACT_CALL -> "Contract Call"
+        TransactionType.ERC20_TRANSFER -> "Token Transfer"
+    }
+
 enum class TransactionStatus {
     SUCCESS,
     FAILED,

@@ -4,6 +4,8 @@ import androidx.lifecycle.viewModelScope
 import com.otistran.flash_trade.core.base.BaseViewModel
 import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.repository.AuthRepository
+import com.otistran.flash_trade.domain.repository.PortfolioData
+import com.otistran.flash_trade.domain.repository.PortfolioRepository
 import com.otistran.flash_trade.domain.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.catch
@@ -15,7 +17,8 @@ import javax.inject.Inject
 @HiltViewModel
 class PortfolioViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val portfolioRepository: PortfolioRepository
 ) : BaseViewModel<PortfolioState, PortfolioEvent, PortfolioEffect>(
     initialState = PortfolioState()
 ) {
@@ -49,7 +52,7 @@ class PortfolioViewModel @Inject constructor(
                     val previousNetwork = currentState.currentNetwork
                     setState { copy(currentNetwork = networkMode) }
 
-                    // Reload data khi network thay đổi
+                    // Reload data when network changes
                     if (previousNetwork != networkMode && !currentState.isLoading) {
                         refreshPortfolio()
                     }
@@ -75,12 +78,12 @@ class PortfolioViewModel @Inject constructor(
                 }
 
                 userAuthState.walletAddress?.let { address ->
-                    loadWalletData(address)
+                    loadWalletData(address, showLoading = true)
                 } ?: run {
                     setState {
                         copy(
                             isLoading = false,
-                            tokens = getDefaultTokens(),
+                            tokens = buildTokenList(0.0, 3500.0),
                             priceChanges = getMockPriceChanges()
                         )
                     }
@@ -103,14 +106,14 @@ class PortfolioViewModel @Inject constructor(
         if (!currentState.canRefresh) return
 
         viewModelScope.launch {
-            setState { copy(isRefreshing = true) }
+            setState { copy(isRefreshing = true, error = null) }
 
             try {
                 currentState.walletAddress?.let { address ->
-                    loadWalletData(address)
+                    loadWalletData(address, showLoading = false)
                 }
             } catch (e: Exception) {
-                setEffect(PortfolioEffect.ShowToast("Failed to refresh"))
+                setEffect(PortfolioEffect.ShowToast("Refresh failed: ${e.message}"))
             } finally {
                 setState { copy(isRefreshing = false) }
             }
@@ -119,39 +122,77 @@ class PortfolioViewModel @Inject constructor(
 
     // ==================== Wallet Data ====================
 
-    private suspend fun loadWalletData(address: String) {
+    private suspend fun loadWalletData(
+        address: String,
+        showLoading: Boolean = true
+    ) {
         try {
             val network = currentState.currentNetwork
-            // TODO: Sử dụng network.chainId hoặc network.chainName để gọi API
 
+            // Fetch all portfolio data in parallel (from cache or API)
+            val portfolioData: PortfolioData = portfolioRepository.getPortfolioData(
+                walletAddress = address,
+                chainId = network.chainId
+            )
+
+            // TODO: Fetch ETH price from price oracle (future)
             val ethPrice = 3500.0
-            val ethBalance = 0.0
+
+            // Calculate total balance USD
+            val totalBalanceUsd = (portfolioData.balance * ethPrice) +
+                portfolioData.tokens.sumOf { it.balanceUsd }
 
             setState {
                 copy(
                     isLoading = false,
-                    ethBalance = ethBalance,
+                    ethBalance = portfolioData.balance,
                     ethPriceUsd = ethPrice,
-                    totalBalanceUsd = ethBalance * ethPrice,
-                    tokens = getDefaultTokens(ethBalance, ethPrice),
-                    priceChanges = getMockPriceChanges(),
-                    transactions = getMockTransactions(address)
+                    totalBalanceUsd = totalBalanceUsd,
+                    tokens = buildTokenList(portfolioData, ethPrice),
+                    transactions = portfolioData.transactions,
+                    priceChanges = getMockPriceChanges(),  // TODO: Real price changes
+                    error = if (portfolioData.hasErrors) {
+                        "Partial data loaded: ${portfolioData.errorMessage}"
+                    } else null
                 )
             }
+
         } catch (e: Exception) {
             setState {
                 copy(
                     isLoading = false,
-                    tokens = getDefaultTokens(),
-                    priceChanges = getMockPriceChanges()
+                    error = "Failed to load wallet data: ${e.message}"
                 )
             }
         }
     }
 
-    private fun getDefaultTokens(
-        ethBalance: Double = 0.0,
-        ethPrice: Double = 3500.0
+    /**
+     * Build token list with native ETH + ERC-20 tokens.
+     */
+    private fun buildTokenList(
+        portfolioData: PortfolioData,
+        ethPrice: Double
+    ): List<TokenHolding> {
+        val nativeToken = TokenHolding(
+            symbol = currentState.currentNetwork.symbol,
+            name = if (currentState.currentNetwork == NetworkMode.LINEA) {
+                "Linea ETH"
+            } else {
+                "Ethereum"
+            },
+            balance = portfolioData.balance,
+            balanceUsd = portfolioData.balance * ethPrice,
+            priceUsd = ethPrice,
+            priceChange24h = 2.34  // TODO: Real price change
+        )
+
+        return listOf(nativeToken) + portfolioData.tokens
+    }
+
+    private fun buildTokenList(
+        ethBalance: Double,
+        ethPrice: Double
     ): List<TokenHolding> {
         val symbol = currentState.currentNetwork.symbol
         return listOf(
@@ -168,43 +209,12 @@ class PortfolioViewModel @Inject constructor(
     }
 
     private fun getMockPriceChanges(): PriceChanges {
+        // TODO: Fetch real price changes from price oracle
         return PriceChanges(
             change15m = 0.12,
             change1h = 0.45,
             change24h = 2.34,
             change7d = -1.89
-        )
-    }
-
-    private fun getMockTransactions(address: String): List<Transaction> {
-        val now = System.currentTimeMillis() / 1000
-        return listOf(
-            Transaction(
-                hash = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                blockNumber = "18500000",
-                timeStamp = now - 3600,
-                from = address,
-                to = "0xDef1C0ded9bec7F1a1670819833240f027b25EfF",
-                value = "1000000000000000000",
-                gas = "21000",
-                gasPrice = "20000000000",
-                gasUsed = "21000",
-                isError = false,
-                txType = TransactionType.SWAP
-            ),
-            Transaction(
-                hash = "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-                blockNumber = "18499000",
-                timeStamp = now - 86400,
-                from = "0x742d35Cc6634C0532925a3b844Bc9e7595f1d8C2",
-                to = address,
-                value = "500000000000000000",
-                gas = "21000",
-                gasPrice = "18000000000",
-                gasUsed = "21000",
-                isError = false,
-                txType = TransactionType.TRANSFER
-            )
         )
     }
 
@@ -225,7 +235,7 @@ class PortfolioViewModel @Inject constructor(
 
     private fun loadMoreTransactions() {
         if (currentState.isLoadingTransactions) return
-        // TODO: Implement pagination
+        // TODO: Implement pagination with repository
     }
 
     // ==================== Copy Address ====================

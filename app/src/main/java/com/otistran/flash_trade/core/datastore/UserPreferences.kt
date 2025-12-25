@@ -5,14 +5,16 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.otistran.flash_trade.domain.model.User
 import com.otistran.flash_trade.domain.model.UserAuthState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,6 +41,12 @@ class UserPreferences @Inject constructor(
         val USER_EMAIL = stringPreferencesKey("user_email")
         val DISPLAY_NAME = stringPreferencesKey("display_name")
         val LOGIN_TIMESTAMP = longPreferencesKey("login_timestamp")
+
+        // Portfolio balance cache (per network)
+        val ETH_BALANCE_ETHEREUM = stringPreferencesKey("eth_balance_ethereum")
+        val ETH_BALANCE_LINEA = stringPreferencesKey("eth_balance_linea")
+        val BALANCE_CACHE_TS_ETHEREUM = longPreferencesKey("balance_cache_ts_ethereum")
+        val BALANCE_CACHE_TS_LINEA = longPreferencesKey("balance_cache_ts_linea")
     }
 
     val isOnboarded: Flow<Boolean> = context.dataStore.data.map { it[Keys.IS_ONBOARDED] ?: false }
@@ -131,5 +139,63 @@ class UserPreferences @Inject constructor(
 
     suspend fun clear() {
         context.dataStore.edit { it.clear() }
+    }
+
+    // ==================== Portfolio Balance Cache ====================
+
+    /**
+     * Cache ETH balance for specific network.
+     */
+    suspend fun cacheBalance(chainId: Long, balance: Double) {
+        context.dataStore.edit { prefs ->
+            val balanceKey = getBalanceKey(chainId)
+            val timestampKey = getBalanceTimestampKey(chainId)
+
+            prefs[balanceKey] = balance.toString()
+            prefs[timestampKey] = System.currentTimeMillis()
+        }
+    }
+
+    /**
+     * Get cached balance for specific network.
+     * Returns null if not cached.
+     */
+    suspend fun getCachedBalance(chainId: Long): CachedBalance? {
+        val prefs = context.dataStore.data.first()
+        val balanceKey = getBalanceKey(chainId)
+        val timestampKey = getBalanceTimestampKey(chainId)
+
+        val balance = prefs[balanceKey]?.toDoubleOrNull() ?: return null
+        val timestamp = prefs[timestampKey] ?: return null
+
+        return CachedBalance(balance, timestamp)
+    }
+
+    private fun getBalanceKey(chainId: Long): Preferences.Key<String> {
+        return when (chainId) {
+            1L -> Keys.ETH_BALANCE_ETHEREUM
+            59144L -> Keys.ETH_BALANCE_LINEA
+            else -> throw IllegalArgumentException("Unknown chainId: $chainId")
+        }
+    }
+
+    private fun getBalanceTimestampKey(chainId: Long): Preferences.Key<Long> {
+        return when (chainId) {
+            1L -> Keys.BALANCE_CACHE_TS_ETHEREUM
+            59144L -> Keys.BALANCE_CACHE_TS_LINEA
+            else -> throw IllegalArgumentException("Unknown chainId: $chainId")
+        }
+    }
+}
+
+/**
+ * Cached balance with timestamp for TTL validation.
+ */
+data class CachedBalance(val balance: Double, val timestamp: Long) {
+    /**
+     * Check if cache is still valid within TTL.
+     */
+    fun isValid(ttlMs: Long): Boolean {
+        return System.currentTimeMillis() - timestamp < ttlMs
     }
 }
