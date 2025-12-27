@@ -19,82 +19,123 @@
 |       |   |           `-- flash_trade
 |       |   |               |-- FlashTradeApplication.kt
 |       |   |               |-- MainActivity.kt
+|       |   |               |-- core
+|       |   |               |   |-- base
+|       |   |               |   |   |-- BaseViewModel.kt
+|       |   |               |   |   |-- UiEffect.kt
+|       |   |               |   |   |-- UiEvent.kt
+|       |   |               |   |   `-- UiState.kt
+|       |   |               |   |-- datastore
+|       |   |               |   |   `-- UserPreferences.kt
+|       |   |               |   |-- network
+|       |   |               |   |   |-- ApiService.kt
+|       |   |               |   |   |-- AppException.kt
+|       |   |               |   |   |-- NetworkResult.kt
+|       |   |               |   |   |-- SafeApiCall.kt
+|       |   |               |   |   `-- interceptor
+|       |   |               |   |       |-- AuthInterceptor.kt
+|       |   |               |   |       |-- LoggingInterceptor.kt
+|       |   |               |   |       |-- NetworkInterceptor.kt
+|       |   |               |   |       `-- ResponseInterceptor.kt
+|       |   |               |   |-- ui
+|       |   |               |   |   `-- components
+|       |   |               |   |       |-- EmptyView.kt
+|       |   |               |   |       |-- ErrorMessage.kt
+|       |   |               |   |       |-- ErrorView.kt
+|       |   |               |   |       `-- LoadingIndicator.kt
+|       |   |               |   `-- util
+|       |   |               |       |-- Constants.kt
+|       |   |               |       |-- DateUtils.kt
+|       |   |               |       `-- Extensions.kt
 |       |   |               |-- data
 |       |   |               |   |-- local
 |       |   |               |   |   |-- dao
 |       |   |               |   |   |-- database
-|       |   |               |   |   |-- datastore
 |       |   |               |   |   `-- entity
 |       |   |               |   |-- mapper
+|       |   |               |   |   |-- TokenMapper.kt
 |       |   |               |   |   `-- UserMapper.kt
 |       |   |               |   |-- remote
 |       |   |               |   |   |-- api
-|       |   |               |   |   `-- kyber
+|       |   |               |   |   |   `-- KyberApiService.kt
+|       |   |               |   |   |-- dto
+|       |   |               |   |   |   |-- AuthDto.kt
+|       |   |               |   |   |   |-- BaseResponse.kt
+|       |   |               |   |   |   `-- kyber
+|       |   |               |   |   |       `-- TokenListResponse.kt
+|       |   |               |   |   `-- request
+|       |   |               |   |       `-- AuthRequest.kt
 |       |   |               |   |-- repository
 |       |   |               |   |   |-- AuthRepositoryImpl.kt
 |       |   |               |   |   |-- SettingsRepositoryImpl.kt
-|       |   |               |   |   |-- TradeRepositoryImpl.kt
-|       |   |               |   |   `-- WalletRepositoryImpl.kt
+|       |   |               |   |   `-- TokenRepositoryImpl.kt
 |       |   |               |   `-- service
 |       |   |               |       `-- PrivyAuthService.kt
 |       |   |               |-- di
 |       |   |               |   |-- AppModule.kt
 |       |   |               |   |-- AuthModule.kt
-|       |   |               |   |-- DatabaseModule.kt
 |       |   |               |   |-- NetworkModule.kt
-|       |   |               |   |-- PrivyModule.kt
 |       |   |               |   |-- PrivyProvider.kt
-|       |   |               |   |-- RepositoryModule.kt
-|       |   |               |   `-- SettingsModule.kt
+|       |   |               |   |-- SettingsModule.kt
+|       |   |               |   `-- TokenModule.kt
 |       |   |               |-- domain
 |       |   |               |   |-- model
 |       |   |               |   |   |-- AuthState.kt
-|       |   |               |   |   |-- SettingsModel.kt
+|       |   |               |   |   |-- Settings.kt
 |       |   |               |   |   |-- Token.kt
-|       |   |               |   |   |-- Trade.kt
 |       |   |               |   |   |-- User.kt
-|       |   |               |   |   |-- UserAuthState.kt
-|       |   |               |   |   `-- Wallet.kt
+|       |   |               |   |   `-- UserAuthState.kt
 |       |   |               |   |-- repository
 |       |   |               |   |   |-- AuthRepository.kt
 |       |   |               |   |   |-- SettingsRepository.kt
-|       |   |               |   |   |-- TradeRepository.kt
-|       |   |               |   |   |-- UserRepository.kt
-|       |   |               |   |   `-- WalletRepository.kt
+|       |   |               |   |   `-- TokenRepository.kt
 |       |   |               |   `-- usecase
-|       |   |               |       |-- CheckLoginStatusUseCase.kt
-|       |   |               |       |-- LoginUseCase.kt
-|       |   |               |       |-- LogoutUseCase.kt
-|       |   |               |       `-- UseCase.kt
+|       |   |               |       |-- UseCase.kt
+|       |   |               |       |-- auth
+|       |   |               |       |   |-- CheckLoginStatusUseCase.kt
+|       |   |               |       |   |-- LoginUseCase.kt
+|       |   |               |       |   `-- LogoutUseCase.kt
+|       |   |               |       `-- token
+|       |   |               |           |-- GetTokensUseCase.kt
+|       |   |               |           `-- SearchTokensUseCase.kt
 |       |   |               |-- presentation
-|       |   |               |   |-- auth
-|       |   |               |   |   |-- AuthCheckViewModel.kt
-|       |   |               |   |   |-- LoginIntent.kt
-|       |   |               |   |   |-- LoginScreen.kt
-|       |   |               |   |   |-- LoginSideEffect.kt
-|       |   |               |   |   |-- LoginState.kt
-|       |   |               |   |   `-- LoginViewModel.kt
-|       |   |               |   |-- base
-|       |   |               |   |   |-- MviContainer.kt
-|       |   |               |   |   |-- MviIntent.kt
-|       |   |               |   |   |-- MviSideEffect.kt
-|       |   |               |   |   `-- MviState.kt
-|       |   |               |   |-- common
-|       |   |               |   |   |-- ErrorMessage.kt
-|       |   |               |   |   `-- LoadingIndicator.kt
-|       |   |               |   |-- navigation
-|       |   |               |   |   |-- AppState.kt
-|       |   |               |   |   |-- BottomNavBar.kt
-|       |   |               |   |   |-- FlashTradeNavGraph.kt
-|       |   |               |   |   |-- Screen.kt
-|       |   |               |   |   `-- TopLevelDestination.kt
-|       |   |               |   `-- settings
-|       |   |               |       |-- SettingsIntent.kt
-|       |   |               |       |-- SettingsScreen.kt
-|       |   |               |       |-- SettingsSideEffect.kt
-|       |   |               |       |-- SettingsState.kt
-|       |   |               |       |-- SettingsViewModel.kt
-|       |   |               |       `-- components
+|       |   |               |   |-- feature
+|       |   |               |   |   |-- auth
+|       |   |               |   |   |   |-- LoginEffect.kt
+|       |   |               |   |   |   |-- LoginEvent.kt
+|       |   |               |   |   |   |-- LoginScreen.kt
+|       |   |               |   |   |   |-- LoginState.kt
+|       |   |               |   |   |   `-- LoginViewModel.kt
+|       |   |               |   |   |-- portfolio
+|       |   |               |   |   |   |-- PortfolioEffect.kt
+|       |   |               |   |   |   |-- PortfolioEvent.kt
+|       |   |               |   |   |   |-- PortfolioScreen.kt
+|       |   |               |   |   |   |-- PortfolioState.kt
+|       |   |               |   |   |   `-- PortfolioViewModel.kt
+|       |   |               |   |   |-- settings
+|       |   |               |   |   |   |-- SettingsEffect.kt
+|       |   |               |   |   |   |-- SettingsEvent.kt
+|       |   |               |   |   |   |-- SettingsScreen.kt
+|       |   |               |   |   |   |-- SettingsState.kt
+|       |   |               |   |   |   |-- SettingsViewModel.kt
+|       |   |               |   |   |   `-- components
+|       |   |               |   |   |       |-- LogoutConfirmSheet.kt
+|       |   |               |   |   |       |-- LogoutSection.kt
+|       |   |               |   |   |       |-- NetworkConfirmDialog.kt
+|       |   |               |   |   |       |-- NetworkModeSection.kt
+|       |   |               |   |   |       `-- ThemeModeSection.kt
+|       |   |               |   |   `-- trading
+|       |   |               |   |       |-- TradingEffect.kt
+|       |   |               |   |       |-- TradingEvent.kt
+|       |   |               |   |       |-- TradingScreen.kt
+|       |   |               |   |       |-- TradingState.kt
+|       |   |               |   |       `-- TradingViewModel.kt
+|       |   |               |   `-- navigation
+|       |   |               |       |-- AppState.kt
+|       |   |               |       |-- BottomNavBar.kt
+|       |   |               |       |-- FlashTradeNavGraph.kt
+|       |   |               |       |-- Screen.kt
+|       |   |               |       `-- TopLevelDestination.kt
 |       |   |               |-- ui
 |       |   |               |   `-- theme
 |       |   |               |       |-- Color.kt
@@ -148,7 +189,9 @@
 |   |-- startup_results_20251210_231725.txt
 |   |-- startup_results_20251210_233141.txt
 |   |-- startup_results_20251210_234856.txt
-|   `-- startup_results_20251211_000329.txt
+|   |-- startup_results_20251211_000329.txt
+|   |-- startup_results_20251216_230237.txt
+|   `-- startup_results_20251216_230855.txt
 |-- build.gradle.kts
 |-- docs
 |   |-- code-standards.md
@@ -218,6 +261,10 @@
 |   |   |-- plan.md
 |   |   `-- reports
 |   |       `-- 251213-planning-report.md
+|   |-- 251217-update-kyber-api-token-list
+|   |   |-- reports
+|   |   |-- research
+|   |   `-- scout
 |   |-- reports
 |   |   |-- 251212-code-reviewer-to-dev-phase01-review.md
 |   |   |-- 251212-docs-manager-initial-documentation-report.md
@@ -241,4 +288,4 @@
 |-- project_structure.txt
 `-- settings.gradle.kts
 
-81 directories, 160 files
+97 directories, 191 files

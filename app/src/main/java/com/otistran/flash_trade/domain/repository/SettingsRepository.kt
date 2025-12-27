@@ -1,7 +1,7 @@
 package com.otistran.flash_trade.domain.repository
 
 import com.otistran.flash_trade.domain.model.NetworkMode
-import com.otistran.flash_trade.domain.model.SettingsModel
+import com.otistran.flash_trade.domain.model.Settings
 import com.otistran.flash_trade.domain.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 
@@ -13,7 +13,7 @@ interface SettingsRepository {
     /**
      * Observes current settings. Emits on every change.
      */
-    fun observeSettings(): Flow<SettingsModel>
+    fun observeSettings(): Flow<Settings>
 
     /**
      * Updates network mode.

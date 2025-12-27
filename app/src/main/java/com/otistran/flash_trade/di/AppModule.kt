@@ -1,7 +1,7 @@
 package com.otistran.flash_trade.di
 
 import android.content.Context
-import com.otistran.flash_trade.data.local.datastore.UserPreferences
+import com.otistran.flash_trade.core.datastore.UserPreferences
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

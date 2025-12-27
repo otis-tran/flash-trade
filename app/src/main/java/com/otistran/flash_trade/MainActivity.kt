@@ -10,20 +10,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
-import com.otistran.flash_trade.data.local.datastore.UserPreferences
+import com.otistran.flash_trade.core.datastore.UserPreferences
 import com.otistran.flash_trade.di.PrivyProvider
 import com.otistran.flash_trade.domain.model.ThemeMode
+import com.otistran.flash_trade.domain.usecase.auth.CheckLoginStatusUseCase
 import com.otistran.flash_trade.presentation.navigation.BottomNavBar
 import com.otistran.flash_trade.presentation.navigation.FlashTradeNavGraph
+import com.otistran.flash_trade.presentation.navigation.Login
+import com.otistran.flash_trade.presentation.navigation.TradingGraph
 import com.otistran.flash_trade.presentation.navigation.rememberAppState
 import com.otistran.flash_trade.ui.theme.FlashTradeTheme
+import com.otistran.flash_trade.util.Result
 import dagger.hilt.android.AndroidEntryPoint
-import io.privy.logging.PrivyLogLevel
-import io.privy.sdk.Privy
-import io.privy.sdk.PrivyConfig
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -32,14 +37,29 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var userPreferences: UserPreferences
 
+    @Inject
+    lateinit var checkLoginStatusUseCase: CheckLoginStatusUseCase
+
+    /** App ready state - splash stays until true */
+    private var isAppReady by mutableStateOf(false)
+
+    /** Start destination determined during splash */
+    private var startDestination: Any by mutableStateOf(Login)
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Install splash screen (handles API 28-36 automatically)
-        installSplashScreen()
+        val splashScreen = installSplashScreen()
+
+        // Keep splash visible until app is ready
+        splashScreen.setKeepOnScreenCondition { !isAppReady }
 
         super.onCreate(savedInstanceState)
-        // Set context for lazy Privy init (instant, NO blocking)
+
         PrivyProvider.setContext(this)
         enableEdgeToEdge()
+
+        // Check auth during splash (non-blocking)
+        checkAuthDuringSplash()
+
         setContent {
             val themeModeString by userPreferences.themeMode.collectAsState(initial = "DARK")
             val isDarkTheme = when (ThemeMode.valueOf(themeModeString)) {
@@ -66,10 +86,30 @@ class MainActivity : ComponentActivity() {
                 ) { paddingValues ->
                     FlashTradeNavGraph(
                         navController = navController,
+                        startDestination = startDestination,
                         modifier = Modifier.padding(paddingValues)
                     )
                 }
             }
+        }
+    }
+
+    private fun checkAuthDuringSplash() {
+        lifecycleScope.launch {
+            startDestination = when (val result = checkLoginStatusUseCase()) {
+                is Result.Success -> {
+                    val authState = result.data
+                    if (authState.isLoggedIn && authState.isSessionValid) {
+                        TradingGraph
+                    } else {
+                        Login
+                    }
+                }
+
+                is Result.Error -> Login
+                Result.Loading -> Login
+            }
+            isAppReady = true
         }
     }
 }
