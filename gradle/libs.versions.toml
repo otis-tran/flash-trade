@@ -2,7 +2,7 @@
 # Android & Gradle
 agp = "8.11.2"
 kotlin = "2.2.21"
-ksp = "2.2.10-2.0.2"
+ksp = "2.2.21-2.0.4"
 
 # Core Android
 coreKtx = "1.17.0"
@@ -50,6 +50,9 @@ ethers = "1.5.1"
 # Credentials API for passkey
 credentials = "1.6.0-beta03"
 
+# Jetpack Startup
+startupRuntime = "1.2.0"
+
 # Testing
 junit = "4.13.2"
 coroutinesTest = "1.10.2"
@@ -75,6 +78,7 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 
 # hilt
+androidx-startup-runtime = { module = "androidx.startup:startup-runtime", version.ref = "startupRuntime" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "androidxHiltNavigationCompose" }

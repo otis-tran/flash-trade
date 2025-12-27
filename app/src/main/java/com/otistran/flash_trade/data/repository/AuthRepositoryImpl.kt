@@ -1,18 +1,21 @@
 package com.otistran.flash_trade.data.repository
 
 import android.util.Log
+import com.otistran.flash_trade.data.local.datastore.UserPreferences
 import com.otistran.flash_trade.data.mapper.toUser
 import com.otistran.flash_trade.data.service.PrivyAuthService
 import com.otistran.flash_trade.domain.model.AuthState
 import com.otistran.flash_trade.domain.model.OAuthProvider
 import com.otistran.flash_trade.domain.model.User
+import com.otistran.flash_trade.domain.model.UserAuthState
 import com.otistran.flash_trade.domain.repository.AuthRepository
 import com.otistran.flash_trade.util.Result
-import io.privy.auth.AuthState as PrivyAuthState
-import io.privy.auth.oAuth.OAuthProvider as PrivyOAuthProvider
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
+import io.privy.auth.AuthState as PrivyAuthState
+import io.privy.auth.oAuth.OAuthProvider as PrivyOAuthProvider
 
 private const val TAG = "AuthRepositoryImpl"
 
@@ -20,15 +23,40 @@ private const val TAG = "AuthRepositoryImpl"
  * Implementation of AuthRepository using Privy SDK.
  */
 class AuthRepositoryImpl @Inject constructor(
-    private val privyAuthService: PrivyAuthService
+    private val privyAuthService: PrivyAuthService,
+    private val userPreferences: UserPreferences
 ) : AuthRepository {
 
     override fun observeAuthState(): Flow<AuthState> {
         return privyAuthService.authStateFlow.map { it.toDomain() }
     }
 
+    override fun observeUserAuthState(): Flow<UserAuthState> {
+        return userPreferences.authStateFlow
+    }
+
     override suspend fun getAuthState(): AuthState {
         return privyAuthService.getAuthState().toDomain()
+    }
+
+    override suspend fun getUserAuthState(): UserAuthState {
+        // Ưu tiên đọc từ DataStore (nhanh, offline)
+        return userPreferences.authStateFlow.first()
+    }
+
+    override suspend fun hasValidSession(): Boolean {
+        // Check local first (instant)
+        val localState = userPreferences.authStateFlow.first()
+        if (!localState.isLoggedIn) return false
+
+        // Then verify with Privy if needed
+        return try {
+            val privyState = privyAuthService.getAuthState()
+            privyState.isAuthenticated()
+        } catch (e: Exception) {
+            // Offline - check local session validity
+            localState.isSessionValid
+        }
     }
 
     override suspend fun loginWithPasskey(relyingParty: String): Result<User> {
@@ -38,6 +66,8 @@ class AuthRepositoryImpl @Inject constructor(
                 onSuccess = { privyUser ->
                     val user = privyUser.toUser()
                     Log.d(TAG, "Passkey login success: ${user.id}")
+                    // Save login state to DataStore
+                    userPreferences.saveLoginState(user)
                     Result.Success(user)
                 },
                 onFailure = { error ->
@@ -58,6 +88,8 @@ class AuthRepositoryImpl @Inject constructor(
                 onSuccess = { privyUser ->
                     val user = privyUser.toUser()
                     Log.d(TAG, "Passkey signup success: ${user.id}")
+                    // Save login state to DataStore
+                    userPreferences.saveLoginState(user)
                     Result.Success(user)
                 },
                 onFailure = { error ->
@@ -81,7 +113,9 @@ class AuthRepositoryImpl @Inject constructor(
             result.fold(
                 onSuccess = { privyUser ->
                     val user = privyUser.toUser()
-                    Log.d(TAG, "OAuth login success: ${user.id}")
+                    Log.d(TAG, "OAuth login success: ${user.id}, user: $user")
+                    // Save login state to DataStore
+                    userPreferences.saveLoginState(user)
                     Result.Success(user)
                 },
                 onFailure = { error ->
@@ -101,6 +135,8 @@ class AuthRepositoryImpl @Inject constructor(
             result.fold(
                 onSuccess = {
                     Log.d(TAG, "Logout success")
+                    // Save login state to DataStore
+                    userPreferences.clearLoginState()
                     Result.Success(Unit)
                 },
                 onFailure = { error ->
@@ -121,14 +157,19 @@ class AuthRepositoryImpl @Inject constructor(
         return when {
             exception.message?.contains("cancel", ignoreCase = true) == true ->
                 "Login cancelled"
+
             exception.message?.contains("network", ignoreCase = true) == true ->
                 "Network error. Check your connection."
+
             exception.message?.contains("timeout", ignoreCase = true) == true ->
                 "Connection timed out. Please try again."
+
             exception is java.net.UnknownHostException ->
                 "Network error. Check your connection."
+
             exception is java.net.SocketTimeoutException ->
                 "Connection timed out. Please try again."
+
             else ->
                 exception.message ?: "Authentication failed"
         }

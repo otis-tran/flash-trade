@@ -1,9 +1,11 @@
 package com.otistran.flash_trade.presentation.auth
 
+import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.otistran.flash_trade.BuildConfig
 import com.otistran.flash_trade.domain.model.AuthMethod
 import com.otistran.flash_trade.domain.model.OAuthProvider
+import com.otistran.flash_trade.domain.usecase.CheckLoginStatusUseCase
 import com.otistran.flash_trade.domain.usecase.LoginUseCase
 import com.otistran.flash_trade.presentation.base.MviContainer
 import com.otistran.flash_trade.util.Result
@@ -17,10 +19,38 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val loginUseCase: LoginUseCase
+    private val loginUseCase: LoginUseCase,
+    private val checkLoginStatusUseCase: CheckLoginStatusUseCase
 ) : MviContainer<LoginState, LoginIntent, LoginSideEffect>(
     initialState = LoginState()
 ) {
+
+    init {
+        checkExistingLogin()
+    }
+
+    private fun checkExistingLogin() {
+        viewModelScope.launch {
+            when (val result = checkLoginStatusUseCase()) {
+                is Result.Success -> {
+                    val authState = result.data
+                    if (authState.isLoggedIn && authState.isSessionValid) {
+                        // User already logged in with valid session
+                        emitSideEffect(LoginSideEffect.NavigateToTrading)
+                    }
+                }
+
+                is Result.Error -> {
+                    // Continue with normal login flow
+                    Log.w("LoginViewModel", "Check login status failed: ${result.message}")
+                }
+
+                Result.Loading -> {
+                    // Should not happen for this use case
+                }
+            }
+        }
+    }
 
     override fun onIntent(intent: LoginIntent) {
         when (intent) {
@@ -42,9 +72,11 @@ class LoginViewModel @Inject constructor(
                     reduce { copy(isPasskeyLoading = false, user = result.data) }
                     emitSideEffect(LoginSideEffect.NavigateToTrading)
                 }
+
                 is Result.Error -> {
                     reduce { copy(isPasskeyLoading = false, error = result.message) }
                 }
+
                 Result.Loading -> {
                     // Already in loading state
                 }
@@ -65,9 +97,11 @@ class LoginViewModel @Inject constructor(
                     reduce { copy(isGoogleLoading = false, user = result.data) }
                     emitSideEffect(LoginSideEffect.NavigateToTrading)
                 }
+
                 is Result.Error -> {
                     reduce { copy(isGoogleLoading = false, error = result.message) }
                 }
+
                 Result.Loading -> {
                     // Already in loading state
                 }
