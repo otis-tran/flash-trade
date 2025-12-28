@@ -11,7 +11,9 @@ import androidx.navigation.toRoute
 import com.otistran.flash_trade.presentation.feature.auth.LoginScreen
 import com.otistran.flash_trade.presentation.feature.portfolio.PortfolioScreen
 import com.otistran.flash_trade.presentation.feature.settings.SettingsScreen
+import com.otistran.flash_trade.presentation.feature.swap.SwapScreen
 import com.otistran.flash_trade.presentation.feature.trading.TradingScreen
+import com.otistran.flash_trade.presentation.navigation.SwapScreen as SwapScreenRoute
 
 /**
  * Main navigation graph for Flash Trade app.
@@ -45,8 +47,18 @@ fun FlashTradeNavGraph(
             composable<TradingScreen> {
                 TradingScreen(
                     onNavigateToTradeDetails = { tokenAddress ->
-                        // navController.navigate(TradeDetails(tokenAddress))
+                        navController.navigate(SwapScreenRoute(tokenAddress))
                     }
+                )
+            }
+
+            composable<SwapScreenRoute> { backStackEntry ->
+                val args = backStackEntry.toRoute<SwapScreenRoute>()
+                SwapScreen(
+                    tokenAddress = args.tokenAddress,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToTxDetails = { /* TODO: Navigate to tx details */ },
+                    onOpenTokenSelector = { /* TODO: Open token selector */ }
                 )
             }
 

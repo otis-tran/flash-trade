@@ -45,3 +45,6 @@ object SettingsScreen
 // =============================================================================
 @Serializable
 data class TradeDetails(val tradeId: String)
+
+@Serializable
+data class SwapScreen(val tokenAddress: String)
