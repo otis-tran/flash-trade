@@ -23,9 +23,7 @@ object DatabaseModule {
             context,
             FlashTradeDatabase::class.java,
             "flash_trade.db"
-        )
-            .fallbackToDestructiveMigration()
-            .build()
+        ).build()
     }
 
     @Provides

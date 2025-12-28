@@ -15,7 +15,8 @@ import androidx.room.PrimaryKey
         Index(value = ["total_tvl"]),
         Index(value = ["is_verified"]),
         Index(value = ["is_honeypot"]),
-        Index(value = ["symbol"])
+        Index(value = ["symbol"]),
+        Index(value = ["sync_generation"])  // NEW: for cleanup queries
     ]
 )
 data class TokenEntity(
@@ -81,5 +82,8 @@ data class TokenEntity(
     val earliestPoolCreatedAt: Long?,
 
     @ColumnInfo(name = "cached_at")
-    val cachedAt: Long = System.currentTimeMillis()
+    val cachedAt: Long = System.currentTimeMillis(),
+
+    @ColumnInfo(name = "sync_generation", defaultValue = "0")
+    val syncGeneration: Int = 0  // NEW: tracks which sync session this token was seen in
 )

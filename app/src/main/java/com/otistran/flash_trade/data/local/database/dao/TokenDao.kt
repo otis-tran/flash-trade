@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Upsert
 import com.otistran.flash_trade.data.local.entity.TokenEntity
 import com.otistran.flash_trade.data.local.entity.TokenRemoteKeysEntity
 
@@ -68,11 +69,46 @@ interface TokenDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTokens(tokens: List<TokenEntity>)
 
+    /**
+     * Upsert tokens - insert or update if exists.
+     * Used by background sync.
+     */
+    @Upsert
+    suspend fun upsertTokens(tokens: List<TokenEntity>)
+
     @Query("DELETE FROM tokens")
     suspend fun clearTokens()
 
     @Query("SELECT COUNT(*) FROM tokens")
     suspend fun getTokenCount(): Int
+
+    // ==================== Sync Queries ====================
+
+    /**
+     * Delete tokens not seen in the current sync generation.
+     * Returns number of deleted rows.
+     */
+    @Query("DELETE FROM tokens WHERE sync_generation < :minGeneration")
+    suspend fun deleteStaleTokens(minGeneration: Int): Int
+
+    /**
+     * Count tokens matching a specific filter.
+     * Used to check if we have enough tokens after filtering.
+     */
+    @Query("""
+        SELECT COUNT(*) FROM tokens 
+        WHERE is_verified = 1 
+          AND is_whitelisted = 1 
+          AND is_honeypot = 0 
+          AND is_fot = 0
+    """)
+    suspend fun countSafeTokens(): Int
+
+    @Query("SELECT COUNT(*) FROM tokens WHERE is_verified = 1")
+    suspend fun countVerifiedTokens(): Int
+
+    @Query("SELECT COUNT(*) FROM tokens WHERE is_honeypot = 0")
+    suspend fun countNonHoneypotTokens(): Int
 
     /**
      * Get tokens older than TTL threshold.
