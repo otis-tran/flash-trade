@@ -6,7 +6,9 @@ import com.otistran.flash_trade.core.datastore.UserPreferences
 import com.otistran.flash_trade.core.network.ApiService
 import com.otistran.flash_trade.core.network.interceptor.AuthInterceptor
 import com.otistran.flash_trade.core.network.interceptor.NetworkInterceptor
+import com.otistran.flash_trade.core.network.interceptor.ClientIdInterceptor
 import com.otistran.flash_trade.core.network.interceptor.ResponseInterceptor
+import com.otistran.flash_trade.data.remote.api.KyberSwapApiService
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.Module
@@ -40,6 +42,10 @@ object NetworkModule {
     private const val BASE_URL = "https://api.example.com/"
     private const val KYBER_MAINNET_URL = "https://kd-market-service-api.kyberengineering.io/ethereum/"
     private const val KYBER_TESTNET_URL = "https://kd-market-service-api.kyberengineering.io/sepolia/"
+    private const val KYBER_AGGREGATOR_URL = "https://aggregator-api.kyberswap.com/"
+
+    // Client ID for KyberSwap Aggregator (elevated rate limits)
+    private const val KYBER_CLIENT_ID = "FlashTrade"
 
     // ==================== Interceptors ====================
 
@@ -173,5 +179,67 @@ object NetworkModule {
     @Singleton
     fun provideApiService(retrofit: Retrofit): ApiService {
         return retrofit.create(ApiService::class.java)
+    }
+
+    // ==================== KyberSwap Aggregator API ====================
+
+    /**
+     * ClientIdInterceptor adds x-client-id header for rate limit elevation.
+     */
+    @Provides
+    @Singleton
+    fun provideClientIdInterceptor(): ClientIdInterceptor {
+        return ClientIdInterceptor(KYBER_CLIENT_ID)
+    }
+
+    /**
+     * OkHttpClient for KyberSwap Aggregator API with client-id header.
+     */
+    @Provides
+    @Singleton
+    @Named("kyberSwapClient")
+    fun provideKyberSwapOkHttpClient(
+        networkInterceptor: NetworkInterceptor,
+        clientIdInterceptor: ClientIdInterceptor,
+        loggingInterceptor: HttpLoggingInterceptor
+    ): OkHttpClient {
+        return OkHttpClient.Builder()
+            .addInterceptor(networkInterceptor)
+            .addInterceptor(clientIdInterceptor)
+            .addInterceptor(loggingInterceptor)
+            .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
+            .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
+            .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
+    }
+
+    /**
+     * Retrofit instance for KyberSwap Aggregator V1 API.
+     * Used for swap quotes and execution.
+     */
+    @Provides
+    @Singleton
+    @Named("kyberSwap")
+    fun provideKyberSwapRetrofit(
+        @Named("kyberSwapClient") okHttpClient: OkHttpClient,
+        moshi: Moshi
+    ): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl(KYBER_AGGREGATOR_URL)
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+    }
+
+    /**
+     * KyberSwap Aggregator API service for token swaps.
+     */
+    @Provides
+    @Singleton
+    fun provideKyberSwapApiService(
+        @Named("kyberSwap") retrofit: Retrofit
+    ): KyberSwapApiService {
+        return retrofit.create(KyberSwapApiService::class.java)
     }
 }
