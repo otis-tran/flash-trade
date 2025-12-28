@@ -30,6 +30,10 @@ android {
         buildConfigField("String", "PRIVY_APP_ID", "\"${properties.getProperty("PRIVY_APP_ID")}\"")
         buildConfigField("String", "PRIVY_APP_CLIENT_ID", "\"${properties.getProperty("PRIVY_APP_CLIENT_ID")}\"")
 
+        // Etherscan API Key
+        buildConfigField("String", "ETHERSCAN_API_KEY", "\"${properties.getProperty("ETHERSCAN_API_KEY") ?: ""}\"")
+
+
         // Privy auth config
         buildConfigField("String", "PRIVY_RELYING_PARTY", "\"https://flash-trade-assetlinks.netlify.app\"")
         buildConfigField("String", "PRIVY_OAUTH_SCHEME", "\"com.otistran.flashtrade.privy\"")
@@ -160,7 +164,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
-    // QR Code
+    // QR code generation
     implementation(libs.zxing.core)
 
     // Web3
@@ -189,6 +193,14 @@ dependencies {
 
     //
     implementation(libs.okhttp.logging)
+
+    // Camera for scanning
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+
+    // CameraX ML Kit barcode scanning
+    implementation(libs.barcode.scanning)
 
     // Debug only - won't be in release APK
     debugImplementation(libs.androidx.compose.ui.tooling)

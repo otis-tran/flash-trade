@@ -8,6 +8,7 @@ import com.otistran.flash_trade.core.network.interceptor.AuthInterceptor
 import com.otistran.flash_trade.core.network.interceptor.NetworkInterceptor
 import com.otistran.flash_trade.core.network.interceptor.ClientIdInterceptor
 import com.otistran.flash_trade.core.network.interceptor.ResponseInterceptor
+import com.otistran.flash_trade.data.remote.api.EtherscanApiService
 import com.otistran.flash_trade.data.remote.api.KyberSwapApiService
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -43,6 +44,7 @@ object NetworkModule {
     private const val KYBER_MAINNET_URL = "https://kd-market-service-api.kyberengineering.io/ethereum/"
     private const val KYBER_TESTNET_URL = "https://kd-market-service-api.kyberengineering.io/sepolia/"
     private const val KYBER_AGGREGATOR_URL = "https://aggregator-api.kyberswap.com/"
+    private const val ETHERSCAN_API_URL = "https://api.etherscan.io/"
 
     // Client ID for KyberSwap Aggregator (elevated rate limits)
     private const val KYBER_CLIENT_ID = "FlashTrade"
@@ -241,5 +243,64 @@ object NetworkModule {
         @Named("kyberSwap") retrofit: Retrofit
     ): KyberSwapApiService {
         return retrofit.create(KyberSwapApiService::class.java)
+    }
+
+    // ==================== Etherscan API ====================
+
+    /**
+     * OkHttpClient for Etherscan API (no auth needed).
+     */
+    @Provides
+    @Singleton
+    @Named("etherscanClient")
+    fun provideEtherscanOkHttpClient(
+        networkInterceptor: NetworkInterceptor,
+        loggingInterceptor: HttpLoggingInterceptor
+    ): OkHttpClient {
+        return OkHttpClient.Builder()
+            .addInterceptor(networkInterceptor)
+            .addInterceptor(loggingInterceptor)
+            .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
+            .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
+            .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
+    }
+
+    /**
+     * Retrofit instance for Etherscan V2 API.
+     */
+    @Provides
+    @Singleton
+    @Named("etherscan")
+    fun provideEtherscanRetrofit(
+        @Named("etherscanClient") okHttpClient: OkHttpClient,
+        moshi: Moshi
+    ): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl(ETHERSCAN_API_URL)
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+    }
+
+    /**
+     * Etherscan API service for portfolio data.
+     */
+    @Provides
+    @Singleton
+    fun provideEtherscanApiService(
+        @Named("etherscan") retrofit: Retrofit
+    ): EtherscanApiService {
+        return retrofit.create(EtherscanApiService::class.java)
+    }
+
+    /**
+     * Etherscan API key from BuildConfig.
+     */
+    @Provides
+    @Named("etherscanApiKey")
+    fun provideEtherscanApiKey(): String {
+        return BuildConfig.ETHERSCAN_API_KEY
     }
 }

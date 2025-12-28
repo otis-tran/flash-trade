@@ -37,16 +37,19 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.Token
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -54,6 +57,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,6 +79,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.otistran.flash_trade.core.ui.components.LoadingIndicator
 import com.otistran.flash_trade.domain.model.NetworkMode
+import com.otistran.flash_trade.presentation.feature.portfolio.components.QRCodeView
 import com.otistran.flash_trade.ui.theme.KyberTeal
 
 private val PriceUp = Color(0xFF00C853)
@@ -86,6 +93,7 @@ fun PortfolioScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var showQRSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -97,6 +105,7 @@ fun PortfolioScreen(
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     val clip = ClipData.newPlainText("Wallet Address", effect.text)
                     clipboard.setPrimaryClip(clip)
+                    Toast.makeText(context, "Address copied", Toast.LENGTH_SHORT).show()
                 }
                 is PortfolioEffect.OpenExplorerTx -> {
                     val url = "${effect.explorerUrl}/tx/${effect.txHash}"
@@ -106,31 +115,61 @@ fun PortfolioScreen(
         }
     }
 
-    Surface(
-        modifier = modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            CenterAlignedTopAppBar(
-                title = { Text("Portfolio") },
-                actions = {
-                    IconButton(
-                        onClick = { viewModel.onEvent(PortfolioEvent.RefreshPortfolio) },
-                        enabled = state.canRefresh
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                ),
-                windowInsets = WindowInsets(0, 0, 0, 0)
-            )
+    Box(modifier = modifier.fillMaxSize()) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                CenterAlignedTopAppBar(
+                    title = { Text("Portfolio") },
+                    actions = {
+                        IconButton(
+                            onClick = { viewModel.onEvent(PortfolioEvent.RefreshPortfolio) },
+                            enabled = state.canRefresh
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    ),
+                    windowInsets = WindowInsets(0, 0, 0, 0)
+                )
 
-            when {
-                state.isLoading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
-                else -> PortfolioContent(state = state, onEvent = viewModel::onEvent)
+                when {
+                    state.isLoading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
+                    else -> PortfolioContent(state = state, onEvent = viewModel::onEvent)
+                }
             }
+        }
+
+        // FAB for receive QR code
+        if (state.hasWallet) {
+            FloatingActionButton(
+                onClick = { showQRSheet = true },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .size(56.dp)
+            ) {
+                Icon(
+                    Icons.Outlined.QrCode,
+                    contentDescription = "Receive",
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        // QR Code Bottom Sheet
+        if (showQRSheet && state.walletAddress != null) {
+            ReceiveQRBottomSheet(
+                address = state.walletAddress!!,
+                chainId = state.currentNetwork.chainId,
+                networkName = state.currentNetwork.symbol,
+                onDismiss = { showQRSheet = false },
+                onCopyAddress = { viewModel.onEvent(PortfolioEvent.CopyWalletAddress) }
+            )
         }
     }
 }
@@ -194,10 +233,10 @@ private fun PortfolioContent(
             }
 
             if (state.transactions.isEmpty()) {
-                item { EmptyTransactionsPlaceholder() }
+                item(key = "empty_placeholder") { EmptyTransactionsPlaceholder() }
             } else {
                 state.groupedTransactions.forEach { (dateGroup, transactions) ->
-                    item {
+                    item(key = "header_$dateGroup", contentType = "date_header") {
                         Text(
                             text = dateGroup,
                             style = MaterialTheme.typography.labelMedium,
@@ -205,7 +244,11 @@ private fun PortfolioContent(
                             modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                         )
                     }
-                    items(items = transactions, key = { it.hash }) { tx ->
+                    items(
+                        items = transactions,
+                        key = { it.hash },
+                        contentType = { "transaction" }
+                    ) { tx ->
                         TransactionItem(
                             transaction = tx,
                             walletAddress = state.walletAddress ?: "",
@@ -707,5 +750,30 @@ private fun GlassCard(
         ) {
             content()
         }
+    }
+}
+
+/**
+ * Bottom sheet for displaying QR code to receive crypto.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReceiveQRBottomSheet(
+    address: String,
+    chainId: Long,
+    networkName: String,
+    onDismiss: () -> Unit,
+    onCopyAddress: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        QRCodeView(
+            address = address,
+            chainId = chainId,
+            networkName = networkName,
+            onCopyAddress = onCopyAddress
+        )
     }
 }
