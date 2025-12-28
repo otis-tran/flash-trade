@@ -4,17 +4,20 @@ import androidx.lifecycle.viewModelScope
 import com.otistran.flash_trade.core.base.BaseViewModel
 import com.otistran.flash_trade.domain.model.Token
 import com.otistran.flash_trade.domain.model.TokenFilter
+import com.otistran.flash_trade.domain.repository.TokenRepository
 import com.otistran.flash_trade.domain.usecase.token.GetTokensUseCase
 import com.otistran.flash_trade.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class TradingViewModel @Inject constructor(
-    private val getTokensUseCase: GetTokensUseCase
+    private val getTokensUseCase: GetTokensUseCase,
+    private val tokenRepository: TokenRepository
 ) : BaseViewModel<TradingState, TradingEvent, TradingEffect>(
     initialState = TradingState()
 ) {
@@ -22,7 +25,26 @@ class TradingViewModel @Inject constructor(
     private var searchJob: Job? = null
 
     init {
-        loadTokens()
+        loadTokensIfNeeded()
+    }
+
+    private fun loadTokensIfNeeded() {
+        viewModelScope.launch {
+            // Check cache first - if prefetch populated it, use immediately
+            val cachedTokens = tokenRepository.observeTokens().first()
+
+            if (cachedTokens.isNotEmpty()) {
+                setState {
+                    copy(
+                        isLoading = false,
+                        tokens = cachedTokens,
+                        hasMore = cachedTokens.size >= 50
+                    )
+                }
+            } else {
+                loadTokens()
+            }
+        }
     }
 
     override fun onEvent(event: TradingEvent) {

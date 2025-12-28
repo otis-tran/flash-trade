@@ -26,16 +26,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.otistran.flash_trade.core.ui.components.LoadingIndicator
+import com.otistran.flash_trade.core.ui.components.NetworkSelectorBottomSheet
+import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.presentation.feature.settings.components.LogoutConfirmSheet
 import com.otistran.flash_trade.presentation.feature.settings.components.LogoutSection
-import com.otistran.flash_trade.presentation.feature.settings.components.NetworkConfirmDialog
 import com.otistran.flash_trade.presentation.feature.settings.components.NetworkModeSection
 import com.otistran.flash_trade.presentation.feature.settings.components.ThemeModeSection
 
-/**
- * Settings screen.
- * Displays network mode, theme mode, and logout options.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -47,7 +44,6 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // Handle side effects
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
@@ -59,14 +55,21 @@ fun SettingsScreen(
         }
     }
 
-    // Dialogs
-    if (state.showMainnetConfirmDialog) {
-        NetworkConfirmDialog(
-            onConfirm = { viewModel.onEvent(SettingsEvent.ConfirmMainnetSwitch) },
-            onDismiss = { viewModel.onEvent(SettingsEvent.CancelMainnetSwitch) }
+    // Network Selector Bottom Sheet
+    if (state.showNetworkSelector) {
+        NetworkSelectorBottomSheet(
+            networks = NetworkMode.entries,
+            selectedNetwork = state.networkMode,
+            onNetworkSelected = { network ->
+                viewModel.onEvent(SettingsEvent.SelectNetwork(network))
+            },
+            onDismiss = {
+                viewModel.onEvent(SettingsEvent.ToggleNetworkSelector)
+            }
         )
     }
 
+    // Logout Confirmation
     if (state.showLogoutConfirmSheet) {
         LogoutConfirmSheet(
             onConfirm = { viewModel.onEvent(SettingsEvent.ConfirmLogout) },
@@ -74,13 +77,11 @@ fun SettingsScreen(
         )
     }
 
-    // Main content
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // TopAppBar
             CenterAlignedTopAppBar(
                 title = { Text("Settings") },
                 navigationIcon = {
@@ -97,7 +98,6 @@ fun SettingsScreen(
                 windowInsets = WindowInsets(0, 0, 0, 0)
             )
 
-            // Content
             if (state.isLoading) {
                 LoadingIndicator(modifier = Modifier.fillMaxSize())
             } else {
@@ -123,9 +123,7 @@ private fun SettingsContent(
     ) {
         NetworkModeSection(
             networkMode = state.networkMode,
-            onNetworkModeChange = { mode ->
-                onEvent(SettingsEvent.ChangeNetworkMode(mode))
-            }
+            onClick = { onEvent(SettingsEvent.ToggleNetworkSelector) }
         )
 
         ThemeModeSection(
@@ -139,9 +137,7 @@ private fun SettingsContent(
 
         LogoutSection(
             isLoggingOut = state.isLoggingOut,
-            onLogoutClick = {
-                onEvent(SettingsEvent.RequestLogout)
-            }
+            onLogoutClick = { onEvent(SettingsEvent.RequestLogout) }
         )
     }
 }

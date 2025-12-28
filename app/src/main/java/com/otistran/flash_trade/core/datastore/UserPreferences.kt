@@ -50,8 +50,7 @@ class UserPreferences @Inject constructor(
     val userId: Flow<String?> = context.dataStore.data.map { it[Keys.USER_ID] }
     val walletAddress: Flow<String?> = context.dataStore.data.map { it[Keys.WALLET_ADDRESS] }
     val themeMode: Flow<String> = context.dataStore.data.map { it[Keys.THEME_MODE] ?: "DARK" }
-    val networkMode: Flow<String> =
-        context.dataStore.data.map { it[Keys.NETWORK_MODE] ?: "TESTNET" }
+    val networkMode: Flow<String> = context.dataStore.data.map { it[Keys.NETWORK_MODE] ?: "LINEA" }
 
     // Auth
     val isLoggedIn: Flow<Boolean> = context.dataStore.data.map { it[Keys.IS_LOGGED_IN] ?: false }

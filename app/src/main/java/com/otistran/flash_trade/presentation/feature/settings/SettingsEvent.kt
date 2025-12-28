@@ -7,12 +7,18 @@ import com.otistran.flash_trade.domain.model.ThemeMode
 
 @Immutable
 sealed class SettingsEvent : UiEvent {
-    data class ChangeNetworkMode(val mode: NetworkMode) : SettingsEvent()
-    data object ConfirmMainnetSwitch : SettingsEvent()
-    data object CancelMainnetSwitch : SettingsEvent()
+    // Network
+    data object ToggleNetworkSelector : SettingsEvent()
+    data class SelectNetwork(val network: NetworkMode) : SettingsEvent()
+
+    // Theme
     data class ChangeThemeMode(val mode: ThemeMode) : SettingsEvent()
+
+    // Logout
     data object RequestLogout : SettingsEvent()
     data object ConfirmLogout : SettingsEvent()
     data object CancelLogout : SettingsEvent()
+
+    // Error
     data object DismissError : SettingsEvent()
 }

@@ -18,7 +18,14 @@ data class SwapState(
     val error: String? = null,
     val txHash: String? = null,
     val quoteExpired: Boolean = false,
-    val userBalance: String = "0.0"
+    val userBalance: String = "0.0",
+
+    // Slippage settings
+    val slippageTolerance: Double = 0.5, // Default 0.5%
+    val showSlippageSettings: Boolean = false,
+
+    // Price impact
+    val priceImpact: Double? = null
 ) : UiState {
 
     val isValid: Boolean
@@ -51,4 +58,35 @@ data class SwapState(
             val formatted = amountOut.divide(divisor, 6, RoundingMode.HALF_DOWN)
             return formatted.stripTrailingZeros().toPlainString()
         }
+
+    val formattedSlippage: String
+        get() = "${slippageTolerance}%"
+
+    val formattedPriceImpact: String
+        get() = priceImpact?.let { "${String.format("%.2f", it)}%" } ?: "-"
+
+    val isPriceImpactHigh: Boolean
+        get() = (priceImpact ?: 0.0) > 3.0
+
+    val isPriceImpactVeryHigh: Boolean
+        get() = (priceImpact ?: 0.0) > 10.0
+
+    val minimumReceived: String
+        get() {
+            if (quote == null || tokenTo == null) return "-"
+            val amountOut = quote.amountOut.toBigDecimal()
+            val divisor = BigDecimal.TEN.pow(tokenTo.decimals)
+            val formatted = amountOut.divide(divisor, 6, RoundingMode.HALF_DOWN)
+            val withSlippage = formatted.multiply(BigDecimal.ONE.minus(BigDecimal(slippageTolerance / 100)))
+            return "${withSlippage.setScale(6, RoundingMode.HALF_DOWN).stripTrailingZeros().toPlainString()} ${tokenTo.symbol}"
+        }
+}
+
+/**
+ * Preset slippage options.
+ */
+enum class SlippageOption(val value: Double, val label: String) {
+    LOW(0.1, "0.1%"),
+    MEDIUM(0.5, "0.5%"),
+    HIGH(1.0, "1.0%")
 }

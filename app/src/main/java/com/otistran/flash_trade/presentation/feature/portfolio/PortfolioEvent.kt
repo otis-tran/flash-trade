@@ -11,6 +11,8 @@ sealed class PortfolioEvent : UiEvent {
     data object LoadPortfolio : PortfolioEvent()
     data object RefreshPortfolio : PortfolioEvent()
     data object CopyWalletAddress : PortfolioEvent()
-    data class SelectNetwork(val network: Network) : PortfolioEvent()
+    data class SelectTimeframe(val timeframe: Timeframe) : PortfolioEvent()
+    data class OpenTransactionDetails(val txHash: String) : PortfolioEvent()
+    data object LoadMoreTransactions : PortfolioEvent()
     data object DismissError : PortfolioEvent()
 }
