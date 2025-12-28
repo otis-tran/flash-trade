@@ -1,6 +1,7 @@
 package com.otistran.flash_trade.domain.repository
 
 import androidx.paging.PagingData
+import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.model.Token
 import com.otistran.flash_trade.domain.model.TokenDisplayFilter
 import com.otistran.flash_trade.domain.model.TokenFilter
@@ -18,7 +19,7 @@ interface TokenRepository {
 
     fun getPagedTokens(filter: TokenFilter = TokenFilter()): Flow<PagingData<Token>>
 
-    fun getPagedTokensFiltered(displayFilter: TokenDisplayFilter): Flow<PagingData<Token>>
+    fun getPagedTokensFiltered(displayFilter: TokenDisplayFilter, networkMode: NetworkMode): Flow<PagingData<Token>>
 
-    fun searchPagedTokens(query: String, safeOnly: Boolean = false): Flow<PagingData<Token>>
+    fun searchPagedTokens(query: String, safeOnly: Boolean = false, networkMode: NetworkMode = NetworkMode.DEFAULT): Flow<PagingData<Token>>
 }

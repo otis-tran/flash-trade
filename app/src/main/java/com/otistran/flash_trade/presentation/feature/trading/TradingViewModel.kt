@@ -4,11 +4,13 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.otistran.flash_trade.core.base.BaseViewModel
+import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.model.SyncState
 import com.otistran.flash_trade.domain.model.Token
 import com.otistran.flash_trade.domain.model.TokenDisplayFilter
 import com.otistran.flash_trade.domain.model.TokenFilter
 import com.otistran.flash_trade.domain.model.TokenSortOrder
+import com.otistran.flash_trade.domain.repository.SettingsRepository
 import com.otistran.flash_trade.domain.sync.TokenSyncManager
 import com.otistran.flash_trade.domain.usecase.token.GetFilteredTokensUseCase
 import com.otistran.flash_trade.domain.usecase.token.GetPagedTokensUseCase
@@ -20,9 +22,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -32,13 +37,15 @@ class TradingViewModel @Inject constructor(
     private val getPagedTokensUseCase: GetPagedTokensUseCase,
     private val getFilteredTokensUseCase: GetFilteredTokensUseCase,
     private val searchTokensUseCase: SearchTokensUseCase,
-    private val tokenSyncManager: TokenSyncManager  // NEW
+    private val tokenSyncManager: TokenSyncManager,
+    private val settingsRepository: SettingsRepository,
 ) : BaseViewModel<TradingState, TradingEvent, TradingEffect>(
     initialState = TradingState()
 ) {
 
     private val _displayFilter = MutableStateFlow(TokenDisplayFilter.DEFAULT)
     private val _searchQuery = MutableStateFlow("")
+    private val _currentNetwork = MutableStateFlow(NetworkMode.DEFAULT)
 
     // Expose sync state for UI indicator
     val syncState: StateFlow<SyncState> = tokenSyncManager.syncState
@@ -50,6 +57,7 @@ class TradingViewModel @Inject constructor(
 
     // Initial data load trigger
     init {
+        observeNetworkMode()
         // Trigger initial load via RemoteMediator
         getPagedTokensUseCase(
             TokenFilter(
@@ -60,17 +68,33 @@ class TradingViewModel @Inject constructor(
         )
     }
 
+    // ==================== Observe Network from Settings ====================
+
+    private fun observeNetworkMode() {
+        viewModelScope.launch {
+            settingsRepository.observeSettings()
+                .map { it.networkMode }
+                .distinctUntilChanged()
+                .catch { /* Ignore errors, use default */ }
+                .collect { networkMode ->
+                    _currentNetwork.value = networkMode
+                    setState { copy(currentNetwork = networkMode) }
+                }
+        }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     val pagingTokens: Flow<PagingData<Token>> = combine(
+        _currentNetwork,
         _displayFilter,
         _searchQuery.debounce(300)
-    ) { filter, query ->
-        filter to query
-    }.flatMapLatest { (filter, query) ->
+    ) { network, filter, query ->
+        Triple(network, filter, query)
+    }.flatMapLatest { (network, filter, query) ->
         if (query.isNotBlank()) {
-            searchTokensUseCase(query, filter.safeOnly)
+            searchTokensUseCase(query, filter.safeOnly, network)
         } else {
-            getFilteredTokensUseCase(filter)
+            getFilteredTokensUseCase(filter, network)
         }
     }.cachedIn(viewModelScope)
 
