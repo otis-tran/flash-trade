@@ -1,6 +1,7 @@
 package com.otistran.flash_trade.di
 
 import android.content.Context
+import com.otistran.flash_trade.data.datastore.SyncCheckpointDataStore
 import com.otistran.flash_trade.data.datastore.SyncPreferences
 import com.otistran.flash_trade.data.sync.TokenSyncManagerImpl
 import com.otistran.flash_trade.domain.sync.TokenSyncManager
@@ -15,13 +16,13 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class SyncModule {
-    
+
     @Binds
     @Singleton
     abstract fun bindTokenSyncManager(
         impl: TokenSyncManagerImpl
     ): TokenSyncManager
-    
+
     companion object {
         @Provides
         @Singleton
@@ -29,6 +30,14 @@ abstract class SyncModule {
             @ApplicationContext context: Context
         ): SyncPreferences {
             return SyncPreferences(context)
+        }
+
+        @Provides
+        @Singleton
+        fun provideSyncCheckpointDataStore(
+            @ApplicationContext context: Context
+        ): SyncCheckpointDataStore {
+            return SyncCheckpointDataStore(context)
         }
     }
 }

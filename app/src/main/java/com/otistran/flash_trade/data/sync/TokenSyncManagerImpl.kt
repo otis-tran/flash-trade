@@ -1,53 +1,84 @@
 package com.otistran.flash_trade.data.sync
 
 import android.util.Log
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import com.otistran.flash_trade.data.datastore.SyncCheckpointDataStore
 import com.otistran.flash_trade.data.datastore.SyncPreferences
 import com.otistran.flash_trade.data.local.database.dao.TokenDao
-import com.otistran.flash_trade.data.local.entity.TokenEntity
 import com.otistran.flash_trade.data.remote.api.KyberApiService
-import com.otistran.flash_trade.data.remote.dto.kyber.TokenDto
+import com.otistran.flash_trade.data.work.TokenSyncWorker
 import com.otistran.flash_trade.domain.model.SyncState
+import com.otistran.flash_trade.domain.sync.SyncProgress
 import com.otistran.flash_trade.domain.sync.TokenSyncManager
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Implementation of TokenSyncManager using WorkManager for background sync.
+ *
+ * Architecture:
+ * - Phase 1: Immediate fetch of top 50 pages via coroutines (< 2s launch)
+ * - Phase 2: WorkManager handles remaining pages (51-3218) via batched workers
+ * - Survives app backgrounding (Privy login) and app termination
+ */
 @Singleton
 class TokenSyncManagerImpl @Inject constructor(
     private val kyberApi: KyberApiService,
     private val tokenDao: TokenDao,
-    private val syncPreferences: SyncPreferences
+    private val syncPreferences: SyncPreferences,
+    private val workManager: WorkManager,
+    private val syncCheckpoint: SyncCheckpointDataStore
 ) : TokenSyncManager {
-    
+
     companion object {
         private const val TAG = "TokenSyncManager"
-        
-        // Sync config
+
+        // API configuration
         private const val MIN_TVL_THRESHOLD = 10_000.0
         private const val PAGE_SIZE = 100
         private const val CACHE_TTL_MS = 60 * 60 * 1000L  // 1 hour
-        private const val REQUEST_DELAY_MS = 100L         // Delay between API calls
-        private const val MAX_RETRIES = 3
-        private const val RETRY_DELAY_MS = 1000L
+
+        // Progressive sync configuration
+        private const val IMMEDIATE_PAGE_COUNT = 50  // Top 50 pages = 5K tokens
+        private const val PAGES_PER_BATCH = 100       // Pages per worker batch
+        private const val IMMEDIATE_FETCH_TIMEOUT_MS = 5000L  // Max wait for immediate fetch
+
+        // Work identifiers
+        private const val SYNC_WORK_NAME = "token_sync_work"
     }
-    
+
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     override val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
-    
-    private val syncMutex = Mutex()
-    
+
+    // Scope for immediate fetch operations
+    private val immediateFetchScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // Note: We don't observe WorkManager state in init since we don't have LifecycleOwner.
+    // Sync state is updated when sync is enqueued and can be polled via getSyncProgress().
+
+    // ==================== Public Interface ====================
+
     override suspend fun shouldSync(): Boolean {
         val lastSync = syncPreferences.getLastSyncTime()
         val tokenCount = tokenDao.getTokenCount()
-        
+
         return when {
             tokenCount == 0 -> {
                 Log.d(TAG, "shouldSync: true (DB empty)")
@@ -63,185 +94,211 @@ class TokenSyncManagerImpl @Inject constructor(
             }
         }
     }
-    
+
     override suspend fun checkAndStartSync() {
         if (shouldSync()) {
-            startSync()
+            enqueueBackgroundSync()
         }
     }
-    
+
     override suspend fun forceSync() {
-        startSync()
+        Log.d(TAG, "Force sync requested")
+
+        // Cancel existing work
+        workManager.cancelUniqueWork(SYNC_WORK_NAME)
+        syncCheckpoint.reset()
+
+        // Start fresh sync
+        enqueueBackgroundSync()
     }
-    
-    private suspend fun startSync() = withContext(Dispatchers.IO) {
-        // Prevent concurrent syncs
-        if (!syncMutex.tryLock()) {
-            Log.d(TAG, "Sync already in progress, skipping")
-            return@withContext
-        }
-        
-        try {
-            performSync()
-        } finally {
-            syncMutex.unlock()
-        }
-    }
-    
-    private suspend fun performSync() {
-        val startTime = System.currentTimeMillis()
-        var currentPage = 1
-        var totalTokensFetched = 0
-        var totalPages: Int? = null
-        
-        Log.d(TAG, "Starting token sync...")
-        
+
+    // ==================== WorkManager Methods ====================
+
+    override suspend fun enqueueBackgroundSync() {
+        Log.d(TAG, "Enqueueing background sync")
+
         // Increment generation for this sync session
         val generation = syncPreferences.incrementGeneration()
         Log.d(TAG, "Sync generation: $generation")
-        
-        try {
-            while (true) {
-                _syncState.value = SyncState.Syncing(
-                    currentPage = currentPage,
-                    totalPages = totalPages,
-                    tokensFetched = totalTokensFetched
-                )
-                
-                // Fetch page with retry
-                val response = fetchPageWithRetry(currentPage)
-                
-                if (response == null) {
-                    // Max retries exceeded
-                    _syncState.value = SyncState.Error(
-                        message = "Failed to fetch page $currentPage after $MAX_RETRIES retries",
-                        lastSuccessfulPage = currentPage - 1,
-                        canRetry = true
-                    )
-                    return
-                }
-                
-                // Update total pages from response
-                if (totalPages == null) {
-                    totalPages = response.totalPages
-                    Log.d(TAG, "Total pages to sync: $totalPages")
-                }
-                
-                // Check for empty data - sync complete
-                if (response.data.isEmpty()) {
-                    Log.d(TAG, "Empty response at page $currentPage - sync complete")
-                    break
-                }
-                
-                // Convert and save to DB
-                val entities = response.data
-                    .filter { isValidToken(it) }
-                    .map { it.toEntity(generation) }
-                
-                if (entities.isNotEmpty()) {
-                    tokenDao.upsertTokens(entities)
-                    totalTokensFetched += entities.size
-                    Log.d(TAG, "Page $currentPage: saved ${entities.size} tokens (total: $totalTokensFetched)")
-                }
-                
-                // Check if we've reached the last page
-                if (currentPage >= (totalPages ?: Int.MAX_VALUE)) {
-                    Log.d(TAG, "Reached last page ($currentPage)")
-                    break
-                }
-                
-                currentPage++
-                
-                // Small delay to avoid rate limiting
-                delay(REQUEST_DELAY_MS)
-            }
-            
-            // Cleanup: Delete tokens not seen in this sync
-            val deletedCount = tokenDao.deleteStaleTokens(generation)
-            Log.d(TAG, "Deleted $deletedCount stale tokens")
-            
-            // Update sync metadata
-            syncPreferences.updateLastSyncTime()
-            syncPreferences.updateTotalTokensCached(tokenDao.getTokenCount())
-            
-            val duration = System.currentTimeMillis() - startTime
-            Log.d(TAG, "Sync completed: $totalTokensFetched tokens in ${duration}ms")
-            
-            _syncState.value = SyncState.Completed(
-                totalTokensSynced = totalTokensFetched,
-                tokensDeleted = deletedCount,
-                durationMs = duration
-            )
-            
-        } catch (e: CancellationException) {
-            Log.d(TAG, "Sync cancelled")
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Sync error", e)
-            _syncState.value = SyncState.Error(
-                message = e.message ?: "Unknown error",
-                lastSuccessfulPage = currentPage - 1,
-                canRetry = true
-            )
-        }
-    }
-    
-    private suspend fun fetchPageWithRetry(page: Int): com.otistran.flash_trade.data.remote.dto.kyber.TokenListResponse? {
-        var lastException: Exception? = null
-        
-        repeat(MAX_RETRIES) { attempt ->
-            try {
-                return kyberApi.getTokens(
-                    minTvl = MIN_TVL_THRESHOLD,
-                    sort = "tvl_desc",
-                    page = page,
-                    limit = PAGE_SIZE
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                lastException = e
-                Log.w(TAG, "Fetch page $page failed (attempt ${attempt + 1}/$MAX_RETRIES): ${e.message}")
-                
-                if (attempt < MAX_RETRIES - 1) {
-                    delay(RETRY_DELAY_MS * (attempt + 1))
-                }
-            }
-        }
-        
-        Log.e(TAG, "Failed to fetch page $page after $MAX_RETRIES retries", lastException)
-        return null
-    }
-    
-    private fun isValidToken(dto: TokenDto): Boolean {
-        // Filter out tokens without name or symbol
-        return !dto.name.isNullOrBlank() && !dto.symbol.isNullOrBlank()
-    }
-    
-    private fun TokenDto.toEntity(generation: Int): TokenEntity {
-        return TokenEntity(
-            address = address,
-            name = name,
-            symbol = symbol,
-            decimals = decimals,
-            logoUrl = logoUrl,
-            isVerified = isVerified,
-            isWhitelisted = isWhitelisted,
-            isStable = isStable,
-            isHoneypot = isHoneypot ?: false,
-            isFot = isFot ?: false,
-            tax = tax ?: 0.0,
-            totalTvl = totalTvlAllPools?.toDoubleOrNull() ?: 0.0,
-            poolCount = poolCount,
-            maxPoolTvl = maxPoolTvl?.toDoubleOrNull(),
-            maxPoolVolume = maxPoolVolume?.toDoubleOrNull(),
-            avgPoolTvl = avgPoolTvl?.toDoubleOrNull(),
-            cgkRank = cgkRank,
-            cmcRank = cmcRank,
-            websites = websites,
-            earliestPoolCreatedAt = earliestPoolCreatedAt,
-            cachedAt = System.currentTimeMillis(),
-            syncGeneration = generation
+
+        // Phase 1: Immediate fetch of top 50 pages (parallel)
+        _syncState.value = SyncState.Syncing(
+            currentPage = 1,
+            totalPages = 3218,
+            tokensFetched = 0
         )
+
+        try {
+            fetchImmediatePages(generation)
+            Log.d(TAG, "Immediate fetch complete: ${tokenDao.getTokenCount()} tokens cached")
+        } catch (e: Exception) {
+            Log.w(TAG, "Immediate fetch failed, continuing with WorkManager", e)
+        }
+
+        // Phase 2: Enqueue WorkManager for remaining pages (51-3218)
+        enqueueBatchWorkers(startPage = 51, endPage = 3218, generation = generation)
+    }
+
+    override suspend fun cancelBackgroundSync() {
+        Log.d(TAG, "Canceling background sync")
+        workManager.cancelUniqueWork(SYNC_WORK_NAME)
+        _syncState.value = SyncState.Idle
+    }
+
+    override suspend fun getSyncProgress(): SyncProgress? {
+        val workInfos = workManager.getWorkInfosForUniqueWork(SYNC_WORK_NAME).get()
+        val workInfo = workInfos.firstOrNull()
+
+        return SyncProgress(
+            lastPageSynced = syncCheckpoint.getLastPageSynced(),
+            totalPages = syncCheckpoint.getTotalPages(),
+            tokensCached = tokenDao.getTokenCount(),
+            isRunning = workInfo?.state == WorkInfo.State.RUNNING
+        )
+    }
+
+    // ==================== Private Methods ====================
+
+    /**
+     * Phase 1: Immediate fetch of top 50 pages using parallel coroutines.
+     * Completes within ~2 seconds to provide fast app launch experience.
+     */
+    private suspend fun fetchImmediatePages(generation: Int) = withContext(Dispatchers.IO) {
+        Log.d(TAG, "Fetching immediate pages (1-$IMMEDIATE_PAGE_COUNT) in parallel")
+
+        // Fetch all 50 pages in parallel
+        val fetchJobs = (1..IMMEDIATE_PAGE_COUNT).map { page ->
+            async {
+                try {
+                    val response = kyberApi.getTokens(
+                        minTvl = MIN_TVL_THRESHOLD,
+                        sort = "tvl_desc",
+                        page = page,
+                        limit = PAGE_SIZE
+                    )
+
+                    // Convert and insert immediately
+                    val entities = response.data
+                        .filter { isValidToken(it) }
+                        .map { dto ->
+                            // Using the extension function defined in TokenMapper
+                            with(com.otistran.flash_trade.data.mapper.TokenMapper) {
+                                dto.toEntity(generation)
+                            }
+                        }
+
+                    if (entities.isNotEmpty()) {
+                        tokenDao.upsertTokens(entities)
+                    }
+
+                    entities.size
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to fetch page $page: ${e.message}")
+                    0
+                }
+            }
+        }
+
+        // Wait for all pages to complete (with timeout)
+        try {
+            withTimeout(IMMEDIATE_FETCH_TIMEOUT_MS) {
+                val results = fetchJobs.awaitAll()
+                val totalFetched = results.sum()
+                Log.d(TAG, "Immediate fetch complete: $totalFetched tokens fetched")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Immediate fetch timeout, continuing with available data")
+        }
+    }
+
+    /**
+     * Phase 2: Enqueue WorkManager batch workers for remaining pages.
+     * Creates a chain of workers, each processing 100 pages.
+     */
+    private fun enqueueBatchWorkers(startPage: Int, endPage: Int, generation: Int) {
+        Log.d(TAG, "Enqueuing batch workers: pages $startPage-$endPage")
+
+        // Start a unique work chain
+        var continuation = workManager.beginUniqueWork(
+            SYNC_WORK_NAME,
+            ExistingWorkPolicy.KEEP,
+            createImmediateWorkerPlaceholder() // Placeholder for completed immediate fetch
+        )
+
+        // Split into batches of 100 pages each
+        var currentStart = startPage
+        while (currentStart <= endPage) {
+            val currentEnd = minOf(currentStart + PAGES_PER_BATCH - 1, endPage)
+
+            continuation = continuation.then(
+                createBatchWorker(currentStart, currentEnd, generation)
+            )
+
+            currentStart = currentEnd + 1
+        }
+
+        continuation.enqueue()
+        Log.d(TAG, "WorkManager enqueue complete")
+    }
+
+    /**
+     * Create a placeholder worker that marks immediate fetch as complete.
+     * This ensures the work chain starts properly.
+     */
+    private fun createImmediateWorkerPlaceholder(): androidx.work.OneTimeWorkRequest {
+        // Use TokenSyncWorker with no-op parameters
+        return OneTimeWorkRequestBuilder<TokenSyncWorker>()
+            .setInputData(
+                androidx.work.workDataOf(
+                    TokenSyncWorker.START_PAGE_KEY to 0,  // Special value: no-op
+                    TokenSyncWorker.END_PAGE_KEY to 0,
+                    TokenSyncWorker.GENERATION_KEY to 0
+                )
+            )
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .setRequiresBatteryNotLow(false)  // Allow even if battery low
+                    .build()
+            )
+            .build()
+    }
+
+    /**
+     * Create a batch worker for a range of pages.
+     */
+    private fun createBatchWorker(
+        startPage: Int,
+        endPage: Int,
+        generation: Int
+    ): androidx.work.OneTimeWorkRequest {
+        return OneTimeWorkRequestBuilder<TokenSyncWorker>()
+            .setInputData(
+                androidx.work.workDataOf(
+                    TokenSyncWorker.START_PAGE_KEY to startPage,
+                    TokenSyncWorker.END_PAGE_KEY to endPage,
+                    TokenSyncWorker.GENERATION_KEY to generation
+                )
+            )
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .setRequiresBatteryNotLow(true)
+                    .setRequiresCharging(false)
+                    .build()
+            )
+            .setBackoffCriteria(
+                androidx.work.BackoffPolicy.EXPONENTIAL,
+                10,
+                TimeUnit.SECONDS
+            )
+            .build()
+    }
+
+    /**
+     * Validate token data before processing.
+     */
+    private fun isValidToken(dto: com.otistran.flash_trade.data.remote.dto.kyber.TokenDto): Boolean {
+        return !dto.name.isNullOrBlank() && !dto.symbol.isNullOrBlank()
     }
 }

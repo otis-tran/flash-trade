@@ -78,7 +78,36 @@ object TokenMapper {
         )
     }
 
+    fun TokenDto.toEntity(generation: Int): TokenEntity {
+        return TokenEntity(
+            address = address,
+            name = name,
+            symbol = symbol,
+            decimals = decimals,
+            logoUrl = logoUrl,
+            isVerified = isVerified,
+            isWhitelisted = isWhitelisted,
+            isStable = isStable,
+            isHoneypot = isHoneypot ?: false,
+            isFot = isFot ?: false,
+            tax = tax ?: 0.0,
+            totalTvl = totalTvlAllPools?.toDoubleOrNull() ?: 0.0,
+            poolCount = poolCount,
+            maxPoolTvl = maxPoolTvl?.toDoubleOrNull(),
+            maxPoolVolume = maxPoolVolume?.toDoubleOrNull(),
+            avgPoolTvl = avgPoolTvl?.toDoubleOrNull(),
+            cgkRank = cgkRank,
+            cmcRank = cmcRank,
+            websites = websites,
+            earliestPoolCreatedAt = earliestPoolCreatedAt,
+            cachedAt = System.currentTimeMillis(),
+            syncGeneration = generation
+        )
+    }
+
     fun List<TokenDto>.toEntityList(): List<TokenEntity> = map { it.toEntity() }
+
+    fun List<TokenDto>.toEntityList(generation: Int): List<TokenEntity> = map { it.toEntity(generation) }
 
     // ==================== Entity → Domain ====================
 
