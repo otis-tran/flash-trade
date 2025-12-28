@@ -51,24 +51,18 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -115,9 +109,11 @@ fun SwapScreen(
                 is SwapEffect.ShowToast -> {
                     Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
                 }
+
                 is SwapEffect.NavigateToTxDetails -> {
                     onNavigateToTxDetails(effect.txHash)
                 }
+
                 SwapEffect.NavigateBack -> onNavigateBack()
                 is SwapEffect.OpenTokenSelector -> onOpenTokenSelector(effect.isFrom)
             }
@@ -139,7 +135,7 @@ fun SwapScreen(
                             Icons.Default.Settings,
                             contentDescription = "Settings",
                             tint = if (state.showSlippageSettings) KyberTeal
-                                   else MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -463,14 +459,14 @@ private fun TokenSelectorButton(
                         .data(token.logoUrl)
                         .crossfade(true)
                         .build(),
-                    contentDescription = token.name,
+                    contentDescription = token.displayName,
                     modifier = Modifier
                         .size(28.dp)
                         .clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
                 Text(
-                    text = token.symbol,
+                    text = token.displaySymbol,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )

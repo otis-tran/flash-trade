@@ -14,14 +14,14 @@ import com.otistran.flash_trade.data.local.entity.TransactionEntity
  */
 @Database(
     entities = [
-        TransactionEntity::class,
         TokenEntity::class,
-        TokenRemoteKeysEntity::class
+        TokenRemoteKeysEntity::class,
+        TransactionEntity::class
     ],
     version = 2,
     exportSchema = false
 )
 abstract class FlashTradeDatabase : RoomDatabase() {
-    abstract fun transactionDao(): TransactionDao
     abstract fun tokenDao(): TokenDao
+    abstract fun transactionDao(): TransactionDao
 }

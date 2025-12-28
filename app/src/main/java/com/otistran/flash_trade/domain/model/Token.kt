@@ -5,39 +5,76 @@ package com.otistran.flash_trade.domain.model
  */
 data class Token(
     val address: String,
-    val name: String,
-    val symbol: String,
+    val name: String?,
+    val symbol: String?,
     val decimals: Int,
     val logoUrl: String?,
     val isVerified: Boolean,
     val isWhitelisted: Boolean,
     val isStable: Boolean,
     val isHoneypot: Boolean,
+    val isFot: Boolean,
+    val tax: Double,
     val totalTvl: Double,
     val poolCount: Int,
+    val maxPoolTvl: Double?,
+    val maxPoolVolume: Double?,
+    val avgPoolTvl: Double?,
     val cgkRank: Int?,
-    val cmcRank: Int?
+    val cmcRank: Int?,
+    val websites: String?,
+    val earliestPoolCreatedAt: Long?
 ) {
-    /** Token is safe to trade (verified, whitelisted, not honeypot) */
-    val isSafe: Boolean
-        get() = isVerified && isWhitelisted && !isHoneypot
+    val displayName: String
+        get() = name?.takeIf { it.isNotBlank() }
+            ?: symbol?.takeIf { it.isNotBlank() }
+            ?: shortAddress
 
-    /** Token has significant liquidity */
+    val displaySymbol: String
+        get() = symbol?.takeIf { it.isNotBlank() } ?: "???"
+
+    val isSafe: Boolean
+        get() = isVerified && isWhitelisted && !isHoneypot && !isFot
+
+    val riskLevel: RiskLevel
+        get() = when {
+            isHoneypot -> RiskLevel.SCAM
+            !isVerified && !isWhitelisted -> RiskLevel.HIGH
+            isVerified && !isWhitelisted -> RiskLevel.MEDIUM
+            isFot || tax > 0 -> RiskLevel.MEDIUM
+            isSafe && hasLiquidity -> RiskLevel.LOW
+            else -> RiskLevel.MEDIUM
+        }
+
     val hasLiquidity: Boolean
         get() = totalTvl > 10_000 && poolCount > 0
 
-    /** Formatted TVL display */
-    val formattedTvl: String
-        get() = when {
-            totalTvl >= 1_000_000_000 -> "$${String.format("%.2f", totalTvl / 1_000_000_000)}B"
-            totalTvl >= 1_000_000 -> "$${String.format("%.2f", totalTvl / 1_000_000)}M"
-            totalTvl >= 1_000 -> "$${String.format("%.2f", totalTvl / 1_000)}K"
-            else -> "$${String.format("%.2f", totalTvl)}"
-        }
+    val isWellKnown: Boolean
+        get() = cgkRank != null || cmcRank != null
 
-    /** Short address display */
+    val bestRank: Int?
+        get() = listOfNotNull(cgkRank, cmcRank).minOrNull()
+
+    val formattedTvl: String
+        get() = formatCurrency(totalTvl)
+
+    val formattedMaxVolume: String
+        get() = maxPoolVolume?.let { formatCurrency(it) } ?: "N/A"
+
     val shortAddress: String
         get() = "${address.take(6)}...${address.takeLast(4)}"
+
+    val ageInDays: Long?
+        get() = earliestPoolCreatedAt?.let {
+            (System.currentTimeMillis() / 1000 - it) / 86400
+        }
+
+    private fun formatCurrency(value: Double): String = when {
+        value >= 1_000_000_000 -> "$%.2fB".format(value / 1_000_000_000)
+        value >= 1_000_000 -> "$%.2fM".format(value / 1_000_000)
+        value >= 1_000 -> "$%.2fK".format(value / 1_000)
+        else -> "$%.2f".format(value)
+    }
 }
 
 /**
@@ -52,7 +89,7 @@ data class TokenListResult(
 )
 
 /**
- * Filter options for token list.
+ * API filter options for token list.
  */
 data class TokenFilter(
     val minTvl: Double? = 1000.0,
@@ -64,9 +101,31 @@ data class TokenFilter(
     val limit: Int = 100
 )
 
+/**
+ * UI display filter options.
+ */
+data class TokenDisplayFilter(
+    val safeOnly: Boolean = false,
+    val verifiedOnly: Boolean = false,
+    val hideHoneypots: Boolean = true,
+    val searchQuery: String = ""
+) {
+    companion object {
+        val DEFAULT = TokenDisplayFilter(hideHoneypots = true)
+        val SAFE = TokenDisplayFilter(safeOnly = true, hideHoneypots = true)
+    }
+}
+
 enum class TokenSortOrder(val value: String) {
     TVL_DESC("tvl_desc"),
     TVL_ASC("tvl_asc"),
     CREATED_DESC("created_desc"),
     CREATED_ASC("created_asc")
+}
+
+enum class RiskLevel(val displayName: String, val color: Long) {
+    LOW("Low Risk", 0xFF4CAF50),
+    MEDIUM("Medium Risk", 0xFFFF9800),
+    HIGH("High Risk", 0xFFF44336),
+    SCAM("Scam", 0xFF9C27B0)
 }

@@ -21,14 +21,6 @@ import java.util.concurrent.TimeUnit
 private const val TAG = "TokenRemoteMediator"
 private const val STARTING_PAGE_INDEX = 1
 
-/**
- * RemoteMediator for Token pagination.
- * Handles network-to-database sync with TTL-based cache invalidation.
- *
- * @param filter Token filter criteria (minTvl, sort order, etc.)
- * @param database Room database instance
- * @param kyberApi Kyber API service
- */
 @OptIn(ExperimentalPagingApi::class)
 class TokenRemoteMediator(
     private val filter: TokenFilter,
@@ -39,46 +31,27 @@ class TokenRemoteMediator(
     private val tokenDao = database.tokenDao()
 
     companion object {
-        /** Cache TTL: 5 minutes */
         private val CACHE_TTL_MILLIS = TimeUnit.MINUTES.toMillis(5)
     }
 
-    /**
-     * Determines if cache should be invalidated based on TTL.
-     */
     private suspend fun shouldInvalidateCache(): Boolean {
         val oldestKeyTime = tokenDao.getOldestKeyCreationTime() ?: return true
-        val currentTime = System.currentTimeMillis()
-        val cacheAge = currentTime - oldestKeyTime
-        return cacheAge > CACHE_TTL_MILLIS
+        return (System.currentTimeMillis() - oldestKeyTime) > CACHE_TTL_MILLIS
     }
 
-    /**
-     * Called before loading to determine if we should skip loading.
-     * Returns SKIP_INITIAL_REFRESH if cache is fresh.
-     */
     override suspend fun initialize(): InitializeAction {
-        val shouldRefresh = shouldInvalidateCache()
-        Log.d(TAG, "initialize() - shouldRefresh: $shouldRefresh")
-
-        return if (shouldRefresh) {
+        return if (shouldInvalidateCache()) {
             InitializeAction.LAUNCH_INITIAL_REFRESH
         } else {
             InitializeAction.SKIP_INITIAL_REFRESH
         }
     }
 
-    /**
-     * Main load function called by Paging library.
-     * Handles REFRESH, PREPEND, APPEND load types.
-     */
     override suspend fun load(
         loadType: LoadType,
         state: PagingState<Int, TokenEntity>
     ): MediatorResult {
         return try {
-            Log.d(TAG, "load() - loadType: $loadType, pages: ${state.pages.size}")
-
             val page = when (loadType) {
                 LoadType.REFRESH -> {
                     val remoteKeys = getRemoteKeyClosestToCurrentPosition(state)
@@ -98,7 +71,6 @@ class TokenRemoteMediator(
 
             Log.d(TAG, "Fetching page: $page")
 
-            // Fetch from API using SafeApiCall
             val result = safeApiCall {
                 kyberApi.getTokens(
                     minTvl = filter.minTvl,
@@ -117,11 +89,8 @@ class TokenRemoteMediator(
                     val entities = response.data.toEntityList()
                     val endOfPaginationReached = entities.isEmpty() || page >= response.totalPages
 
-                    Log.d(TAG, "Fetched ${entities.size} tokens, endOfPagination: $endOfPaginationReached")
-
                     database.withTransaction {
                         if (loadType == LoadType.REFRESH) {
-                            Log.d(TAG, "REFRESH - clearing cache")
                             tokenDao.clearAll()
                         }
 
@@ -140,34 +109,23 @@ class TokenRemoteMediator(
 
                         tokenDao.insertRemoteKeys(keys)
                         tokenDao.insertTokens(entities)
-
-                        Log.d(TAG, "Inserted ${entities.size} tokens and ${keys.size} keys")
                     }
 
                     MediatorResult.Success(endOfPaginationReached = endOfPaginationReached)
                 }
                 is NetworkResult.Error -> {
-                    Log.e(TAG, "API error: ${result.exception.message}")
-                    MediatorResult.Error(
-                        IOException("Failed to fetch tokens: ${result.exception.message}")
-                    )
+                    MediatorResult.Error(IOException("Failed to fetch tokens: ${result.exception.message}"))
                 }
             }
         } catch (e: IOException) {
-            Log.e(TAG, "IOException", e)
             MediatorResult.Error(e)
         } catch (e: HttpException) {
-            Log.e(TAG, "HttpException", e)
             MediatorResult.Error(e)
         } catch (e: Exception) {
-            Log.e(TAG, "Unexpected error", e)
             MediatorResult.Error(e)
         }
     }
 
-    /**
-     * Get remote key for item closest to current scroll position.
-     */
     private suspend fun getRemoteKeyClosestToCurrentPosition(
         state: PagingState<Int, TokenEntity>
     ): TokenRemoteKeysEntity? {
@@ -178,9 +136,6 @@ class TokenRemoteMediator(
         }
     }
 
-    /**
-     * Get remote key for first item in list.
-     */
     private suspend fun getRemoteKeyForFirstItem(
         state: PagingState<Int, TokenEntity>
     ): TokenRemoteKeysEntity? {
@@ -189,9 +144,6 @@ class TokenRemoteMediator(
             ?.let { token -> tokenDao.getRemoteKeyByTokenAddress(token.address) }
     }
 
-    /**
-     * Get remote key for last item in list.
-     */
     private suspend fun getRemoteKeyForLastItem(
         state: PagingState<Int, TokenEntity>
     ): TokenRemoteKeysEntity? {

@@ -12,18 +12,13 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-/**
- * Dependency injection module for Room database.
- */
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(
-        @ApplicationContext context: Context
-    ): FlashTradeDatabase {
+    fun provideDatabase(@ApplicationContext context: Context): FlashTradeDatabase {
         return Room.databaseBuilder(
             context,
             FlashTradeDatabase::class.java,
@@ -34,12 +29,14 @@ object DatabaseModule {
     }
 
     @Provides
-    fun provideTransactionDao(database: FlashTradeDatabase): TransactionDao {
-        return database.transactionDao()
+    @Singleton
+    fun provideTokenDao(database: FlashTradeDatabase): TokenDao {
+        return database.tokenDao()
     }
 
     @Provides
-    fun provideTokenDao(database: FlashTradeDatabase): TokenDao {
-        return database.tokenDao()
+    @Singleton
+    fun provideTransactionDao(database: FlashTradeDatabase): TransactionDao {
+        return database.transactionDao()
     }
 }

@@ -26,19 +26,25 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -50,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -66,9 +73,10 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.otistran.flash_trade.core.ui.components.ErrorView
 import com.otistran.flash_trade.domain.model.Token
+import com.otistran.flash_trade.domain.model.TokenDisplayFilter
+import com.otistran.flash_trade.presentation.feature.trading.components.TokenFilterSheet
 import com.otistran.flash_trade.ui.theme.KyberTeal
 
-// Semantic colors
 private val SafeGreen = Color(0xFF00C853)
 private val RiskRed = Color(0xFFFF5252)
 private val WarningOrange = Color(0xFFFFB800)
@@ -96,6 +104,14 @@ fun TradingScreen(
         }
     }
 
+    if (state.showFilterSheet) {
+        TokenFilterSheet(
+            currentFilter = state.displayFilter,
+            onFilterChange = { viewModel.onEvent(TradingEvent.UpdateFilter(it)) },
+            onDismiss = { viewModel.onEvent(TradingEvent.ToggleFilterSheet) }
+        )
+    }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -103,13 +119,36 @@ fun TradingScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             CenterAlignedTopAppBar(
                 title = { Text("Trading") },
+                actions = {
+                    if (state.displayFilter != TokenDisplayFilter.DEFAULT) {
+                        Badge(containerColor = KyberTeal) {
+                            Text("!", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    IconButton(
+                        onClick = { viewModel.onEvent(TradingEvent.ToggleFilterSheet) }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FilterList,
+                            contentDescription = "Filter"
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 ),
                 windowInsets = WindowInsets(0, 0, 0, 0)
             )
 
-            // Glassmorphic Search Bar
+            if (state.displayFilter != TokenDisplayFilter.DEFAULT) {
+                ActiveFiltersRow(
+                    filter = state.displayFilter,
+                    onClearFilter = {
+                        viewModel.onEvent(TradingEvent.UpdateFilter(TokenDisplayFilter.DEFAULT))
+                    }
+                )
+            }
+
             GlassSearchBar(
                 query = state.searchQuery,
                 onQueryChange = { viewModel.onEvent(TradingEvent.Search(it)) },
@@ -118,12 +157,80 @@ fun TradingScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
-            // Content with Paging 3
             PagingTokenList(
                 tokens = tokens,
-                searchQuery = state.searchQuery,
                 onTokenClick = { viewModel.onEvent(TradingEvent.SelectToken(it)) }
             )
+        }
+    }
+}
+
+@Composable
+private fun ActiveFiltersRow(
+    filter: TokenDisplayFilter,
+    onClearFilter: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (filter.safeOnly) {
+            FilterChip(
+                selected = true,
+                onClick = { },
+                label = { Text("Safe Only") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.VerifiedUser,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = SafeGreen.copy(alpha = 0.2f),
+                    selectedLabelColor = SafeGreen
+                )
+            )
+        }
+
+        if (filter.verifiedOnly && !filter.safeOnly) {
+            FilterChip(
+                selected = true,
+                onClick = { },
+                label = { Text("Verified") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Verified,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = KyberTeal.copy(alpha = 0.2f),
+                    selectedLabelColor = KyberTeal
+                )
+            )
+        }
+
+        if (filter.hideHoneypots && !filter.safeOnly) {
+            FilterChip(
+                selected = true,
+                onClick = { },
+                label = { Text("No Honeypots") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = WarningOrange.copy(alpha = 0.2f),
+                    selectedLabelColor = WarningOrange
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        TextButton(onClick = onClearFilter) {
+            Text("Clear", color = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -197,15 +304,10 @@ private fun GlassSearchBar(
     }
 }
 
-/**
- * Paging 3 token list with LoadState handling.
- * Supports pull-to-refresh, infinite scroll, and client-side filtering.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PagingTokenList(
     tokens: LazyPagingItems<Token>,
-    searchQuery: String,
     onTokenClick: (Token) -> Unit
 ) {
     PullToRefreshBox(
@@ -214,12 +316,9 @@ private fun PagingTokenList(
         modifier = Modifier.fillMaxSize()
     ) {
         when {
-            // Initial loading
             tokens.loadState.refresh is LoadState.Loading && tokens.itemCount == 0 -> {
                 LoadingContent()
             }
-
-            // Error on initial load
             tokens.loadState.refresh is LoadState.Error && tokens.itemCount == 0 -> {
                 val error = (tokens.loadState.refresh as LoadState.Error).error
                 ErrorView(
@@ -227,13 +326,9 @@ private fun PagingTokenList(
                     onRetry = { tokens.retry() }
                 )
             }
-
-            // Empty state
             tokens.loadState.refresh is LoadState.NotLoading && tokens.itemCount == 0 -> {
                 EmptyContent()
             }
-
-            // Success - show list
             else -> {
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
@@ -244,23 +339,14 @@ private fun PagingTokenList(
                         count = tokens.itemCount,
                         key = tokens.itemKey { it.address }
                     ) { index ->
-                        val token = tokens[index]
-                        if (token != null) {
-                            // Client-side search filtering
-                            val matchesSearch = searchQuery.isBlank() ||
-                                token.name.contains(searchQuery, ignoreCase = true) ||
-                                token.symbol.contains(searchQuery, ignoreCase = true)
-
-                            if (matchesSearch) {
-                                TokenCard(
-                                    token = token,
-                                    onClick = { onTokenClick(token) }
-                                )
-                            }
+                        tokens[index]?.let { token ->
+                            TokenCard(
+                                token = token,
+                                onClick = { onTokenClick(token) }
+                            )
                         }
                     }
 
-                    // Append loading indicator
                     if (tokens.loadState.append is LoadState.Loading) {
                         item {
                             Box(
@@ -278,7 +364,6 @@ private fun PagingTokenList(
                         }
                     }
 
-                    // Append error indicator
                     if (tokens.loadState.append is LoadState.Error) {
                         item {
                             val error = (tokens.loadState.append as LoadState.Error).error
@@ -322,14 +407,12 @@ private fun TokenCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Token Logo with gradient border for verified
             Box {
                 TokenLogo(
                     logoUrl = token.logoUrl,
-                    symbol = token.symbol,
+                    symbol = token.displaySymbol,
                     modifier = Modifier.size(48.dp)
                 )
-                // Verified badge
                 if (token.isVerified) {
                     Box(
                         modifier = Modifier
@@ -351,22 +434,19 @@ private fun TokenCard(
 
             Spacer(modifier = Modifier.width(14.dp))
 
-            // Token Info
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = token.symbol,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                Text(
+                    text = token.displaySymbol,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
                 Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
-                    text = token.name,
+                    text = token.displayName,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -374,7 +454,6 @@ private fun TokenCard(
                 )
             }
 
-            // TVL & Status
             Column(horizontalAlignment = Alignment.End) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -452,13 +531,13 @@ private fun TokenStatusBadge(token: Token) {
             "Safe",
             SafeGreen.copy(alpha = 0.15f),
             SafeGreen,
-            Icons.Default.Verified
+            Icons.Default.VerifiedUser
         )
-        token.isWhitelisted -> StatusBadgeData(
-            "Listed",
+        token.isVerified -> StatusBadgeData(
+            "Verified",
             KyberTeal.copy(alpha = 0.15f),
             KyberTeal,
-            null
+            Icons.Default.Verified
         )
         else -> StatusBadgeData(
             "${token.poolCount} pools",
@@ -499,7 +578,7 @@ private data class StatusBadgeData(
     val text: String,
     val bgColor: Color,
     val textColor: Color,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector?
+    val icon: ImageVector?
 )
 
 @Composable

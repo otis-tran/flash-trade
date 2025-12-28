@@ -7,13 +7,15 @@ import androidx.room.PrimaryKey
 
 /**
  * Room entity for cached token data.
- * Indexed on address (unique lookups) and totalTvl (sorted queries).
  */
 @Entity(
     tableName = "tokens",
     indices = [
         Index(value = ["address"], unique = true),
-        Index(value = ["total_tvl"])
+        Index(value = ["total_tvl"]),
+        Index(value = ["is_verified"]),
+        Index(value = ["is_honeypot"]),
+        Index(value = ["symbol"])
     ]
 )
 data class TokenEntity(
@@ -22,10 +24,10 @@ data class TokenEntity(
     val address: String,
 
     @ColumnInfo(name = "name")
-    val name: String,
+    val name: String?,
 
     @ColumnInfo(name = "symbol")
-    val symbol: String,
+    val symbol: String?,
 
     @ColumnInfo(name = "decimals")
     val decimals: Int,
@@ -45,17 +47,38 @@ data class TokenEntity(
     @ColumnInfo(name = "is_honeypot")
     val isHoneypot: Boolean,
 
+    @ColumnInfo(name = "is_fot")
+    val isFot: Boolean,
+
+    @ColumnInfo(name = "tax")
+    val tax: Double,
+
     @ColumnInfo(name = "total_tvl")
     val totalTvl: Double,
 
     @ColumnInfo(name = "pool_count")
     val poolCount: Int,
 
+    @ColumnInfo(name = "max_pool_tvl")
+    val maxPoolTvl: Double?,
+
+    @ColumnInfo(name = "max_pool_volume")
+    val maxPoolVolume: Double?,
+
+    @ColumnInfo(name = "avg_pool_tvl")
+    val avgPoolTvl: Double?,
+
     @ColumnInfo(name = "cgk_rank")
     val cgkRank: Int?,
 
     @ColumnInfo(name = "cmc_rank")
     val cmcRank: Int?,
+
+    @ColumnInfo(name = "websites")
+    val websites: String?,
+
+    @ColumnInfo(name = "earliest_pool_created_at")
+    val earliestPoolCreatedAt: Long?,
 
     @ColumnInfo(name = "cached_at")
     val cachedAt: Long = System.currentTimeMillis()
