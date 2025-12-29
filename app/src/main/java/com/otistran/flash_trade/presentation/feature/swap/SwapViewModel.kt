@@ -3,7 +3,9 @@ package com.otistran.flash_trade.presentation.feature.swap
 import androidx.lifecycle.viewModelScope
 import com.otistran.flash_trade.core.base.BaseViewModel
 import com.otistran.flash_trade.data.service.PrivyAuthService
+import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.model.Token
+import com.otistran.flash_trade.domain.repository.SettingsRepository
 import com.otistran.flash_trade.domain.repository.TokenRepository
 import com.otistran.flash_trade.domain.usecase.swap.ExecuteSwapUseCase
 import com.otistran.flash_trade.domain.usecase.swap.GetSwapQuoteUseCase
@@ -11,6 +13,8 @@ import com.otistran.flash_trade.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -25,13 +29,30 @@ class SwapViewModel @Inject constructor(
     private val getSwapQuoteUseCase: GetSwapQuoteUseCase,
     private val executeSwapUseCase: ExecuteSwapUseCase,
     private val privyAuthService: PrivyAuthService,
-    private val tokenRepository: TokenRepository
+    private val tokenRepository: TokenRepository,
+    private val settingsRepository: SettingsRepository
 ) : BaseViewModel<SwapState, SwapEvent, SwapEffect>(
     initialState = SwapState()
 ) {
 
     private var quoteRefreshJob: Job? = null
     private var debounceJob: Job? = null
+    private var currentNetwork: NetworkMode = NetworkMode.DEFAULT
+
+    init {
+        observeNetwork()
+    }
+
+    private fun observeNetwork() {
+        viewModelScope.launch {
+            settingsRepository.observeSettings()
+                .map { it.networkMode }
+                .distinctUntilChanged()
+                .collect { network ->
+                    currentNetwork = network
+                }
+        }
+    }
 
     override fun onEvent(event: SwapEvent) {
         when (event) {
@@ -53,7 +74,7 @@ class SwapViewModel @Inject constructor(
     private fun loadToken(address: String) {
         if (address.isBlank()) return
         viewModelScope.launch {
-            when (val result = tokenRepository.getTokenByAddress(address)) {
+            when (val result = tokenRepository.getTokenByAddress(address, currentNetwork)) {
                 is Result.Success -> {
                     result.data?.let { token ->
                         setState { copy(tokenFrom = token) }

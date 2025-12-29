@@ -13,7 +13,10 @@ import kotlinx.coroutines.flow.Flow
  */
 interface TokenRepository {
 
-    suspend fun getTokenByAddress(address: String): Result<Token?>
+    suspend fun getTokenByAddress(
+        address: String,
+        networkMode: NetworkMode = NetworkMode.DEFAULT
+    ): Result<Token?>
 
     suspend fun searchTokens(query: String, limit: Int = 20): Result<List<Token>>
 

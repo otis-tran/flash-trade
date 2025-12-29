@@ -31,7 +31,19 @@ class TokenRepositoryImpl @Inject constructor(
     private val tokenDao: TokenDao
 ) : TokenRepository {
 
-    override suspend fun getTokenByAddress(address: String): Result<Token?> {
+    override suspend fun getTokenByAddress(
+        address: String,
+        networkMode: NetworkMode
+    ): Result<Token?> {
+        // Check dummy tokens for LINEA network
+        if (networkMode == NetworkMode.LINEA) {
+            val dummyToken = getLineaDummyTokens().firstOrNull { it.address == address }
+            if (dummyToken != null) {
+                return Result.Success(dummyToken)
+            }
+        }
+
+        // Check database for regular tokens
         return try {
             val cached = tokenDao.getTokenByAddress(address)
             if (cached != null) {
