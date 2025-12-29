@@ -22,7 +22,7 @@ class FlashTradeApplication : Application() {
 
         // Start background sync on app launch
         applicationScope.launch {
-            tokenSyncManager.checkAndStartSync()
+            //tokenSyncManager.checkAndStartSync()
         }
     }
 }

@@ -27,6 +27,8 @@ data class PortfolioState(
     // Transaction History
     val transactions: List<Transaction> = emptyList(),
     val isLoadingTransactions: Boolean = false,
+    val currentPage: Int = 1,
+    val hasMoreTransactions: Boolean = true,
 
     // Network - observe từ Settings (read-only)
     val currentNetwork: NetworkMode = NetworkMode.LINEA,

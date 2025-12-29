@@ -12,6 +12,7 @@ import com.otistran.flash_trade.data.remote.api.EtherscanApiService
 import com.otistran.flash_trade.domain.repository.PortfolioData
 import com.otistran.flash_trade.domain.repository.PortfolioRepository
 import com.otistran.flash_trade.di.IoDispatcher
+import com.otistran.flash_trade.util.Result
 import com.otistran.flash_trade.presentation.feature.portfolio.TokenHolding
 import com.otistran.flash_trade.presentation.feature.portfolio.Transaction
 import kotlinx.coroutines.CoroutineDispatcher
@@ -48,7 +49,7 @@ class PortfolioRepositoryImpl @Inject constructor(
             // Check cache first
             val cached = userPreferences.getCachedBalance(chainId)
             if (cached != null && cached.isValid(BALANCE_TTL_MS)) {
-                return@withContext Result.success(cached.balance)
+                return@withContext Result.Success(cached.balance)
             }
 
             // Cache miss or expired - fetch from API
@@ -64,17 +65,17 @@ class PortfolioRepositoryImpl @Inject constructor(
                 // Update cache
                 userPreferences.cacheBalance(chainId, ethBalance)
 
-                Result.success(ethBalance)
+                Result.Success(ethBalance)
             } else {
                 // Return cached data if available, even if expired
-                cached?.let { Result.success(it.balance) }
-                    ?: Result.failure(Exception(response.message))
+                cached?.let { Result.Success(it.balance) }
+                    ?: Result.Error(response.message)
             }
         } catch (e: Exception) {
             // On error, try to return cached data
             val cached = userPreferences.getCachedBalance(chainId)
-            cached?.let { Result.success(it.balance) }
-                ?: Result.failure(e)
+            cached?.let { Result.Success(it.balance) }
+                ?: Result.Error(e.message ?: "Unknown error", e)
         }
     }
 
@@ -93,12 +94,12 @@ class PortfolioRepositoryImpl @Inject constructor(
 
             if (response.status == "1" && response.result != null) {
                 val holdings = aggregateTokenBalances(response.result, walletAddress)
-                Result.success(holdings)
+                Result.Success(holdings)
             } else {
-                Result.success(emptyList())
+                Result.Success(emptyList())
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.Error(e.message ?: "Unknown error", e)
         }
     }
 
@@ -115,7 +116,7 @@ class PortfolioRepositoryImpl @Inject constructor(
                 val cached = transactionDao.getRecentTransactions(chainId, minTimestamp)
 
                 if (cached.isNotEmpty()) {
-                    return@withContext Result.success(cached.map { it.toDomain() })
+                    return@withContext Result.Success(cached.map { it.toDomain() })
                 }
             }
 
@@ -159,14 +160,14 @@ class PortfolioRepositoryImpl @Inject constructor(
                 transactionDao.deleteExpired(chainId, expiredTimestamp)
             }
 
-            Result.success(sorted)
+            Result.Success(sorted)
         } catch (e: Exception) {
             // On error, return any cached data
             val cached = transactionDao.getTransactions(chainId, pageSize)
             if (cached.isNotEmpty()) {
-                Result.success(cached.map { it.toDomain() })
+                Result.Success(cached.map { it.toDomain() })
             } else {
-                Result.failure(e)
+                Result.Error(e.message ?: "Unknown error", e)
             }
         }
     }
@@ -178,24 +179,33 @@ class PortfolioRepositoryImpl @Inject constructor(
         val errors = mutableListOf<String>()
 
         val balanceDeferred = async {
-            getBalance(walletAddress, chainId).getOrElse {
-                errors.add("Balance: ${it.message}")
-                0.0
-            }
+            getBalance(walletAddress, chainId).fold(
+                onSuccess = { it },
+                onError = { message, _ ->
+                    errors.add("Balance: $message")
+                    0.0
+                }
+            )
         }
 
         val tokensDeferred = async {
-            getTokenHoldings(walletAddress, chainId).getOrElse {
-                errors.add("Tokens: ${it.message}")
-                emptyList()
-            }
+            getTokenHoldings(walletAddress, chainId).fold(
+                onSuccess = { it },
+                onError = { message, _ ->
+                    errors.add("Tokens: $message")
+                    emptyList()
+                }
+            )
         }
 
         val transactionsDeferred = async {
-            getTransactions(walletAddress, chainId).getOrElse {
-                errors.add("Transactions: ${it.message}")
-                emptyList()
-            }
+            getTransactions(walletAddress, chainId).fold(
+                onSuccess = { it },
+                onError = { message, _ ->
+                    errors.add("Transactions: $message")
+                    emptyList()
+                }
+            )
         }
 
         PortfolioData(

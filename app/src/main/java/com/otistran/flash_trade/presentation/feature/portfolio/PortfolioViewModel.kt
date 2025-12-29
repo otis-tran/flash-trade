@@ -4,11 +4,13 @@ import androidx.lifecycle.viewModelScope
 import com.otistran.flash_trade.core.base.BaseViewModel
 import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.repository.AuthRepository
-import com.otistran.flash_trade.domain.repository.PortfolioData
-import com.otistran.flash_trade.domain.repository.PortfolioRepository
 import com.otistran.flash_trade.domain.repository.SettingsRepository
+import com.otistran.flash_trade.domain.usecase.portfolio.GetBalanceUseCase
+import com.otistran.flash_trade.domain.usecase.portfolio.GetPortfolioDataUseCase
+import com.otistran.flash_trade.domain.usecase.portfolio.GetTokenHoldingsUseCase
+import com.otistran.flash_trade.domain.usecase.portfolio.GetTransactionsUseCase
+import com.otistran.flash_trade.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -18,19 +20,23 @@ import javax.inject.Inject
 class PortfolioViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val settingsRepository: SettingsRepository,
-    private val portfolioRepository: PortfolioRepository
+    private val getPortfolioDataUseCase: GetPortfolioDataUseCase,
+    private val getBalanceUseCase: GetBalanceUseCase,
+    private val getTokenHoldingsUseCase: GetTokenHoldingsUseCase,
+    private val getTransactionsUseCase: GetTransactionsUseCase
 ) : BaseViewModel<PortfolioState, PortfolioEvent, PortfolioEffect>(
     initialState = PortfolioState()
 ) {
 
+    private var isInitialLoadDone = false
+
     init {
-        observeNetworkMode()
-        onEvent(PortfolioEvent.LoadPortfolio)
+        observeNetworkAndLoad()
     }
 
     override fun onEvent(event: PortfolioEvent) {
         when (event) {
-            PortfolioEvent.LoadPortfolio -> loadPortfolio()
+            PortfolioEvent.LoadPortfolio -> reloadPortfolio()
             PortfolioEvent.RefreshPortfolio -> refreshPortfolio()
             PortfolioEvent.CopyWalletAddress -> copyWalletAddress()
             is PortfolioEvent.SelectTimeframe -> selectTimeframe(event.timeframe)
@@ -40,21 +46,29 @@ class PortfolioViewModel @Inject constructor(
         }
     }
 
-    // ==================== Observe Network from Settings ====================
+    // ==================== Observe Network & Initial Load ====================
 
-    private fun observeNetworkMode() {
+    /**
+     * Observe network từ Settings.
+     * Khi có network đầu tiên hoặc network thay đổi → load data.
+     * Giải quyết race condition: đảm bảo network đã sẵn sàng trước khi load.
+     */
+    private fun observeNetworkAndLoad() {
         viewModelScope.launch {
             settingsRepository.observeSettings()
                 .map { it.networkMode }
                 .distinctUntilChanged()
-                .catch { /* Ignore errors, use default */ }
-                .collect { networkMode ->
+                .collect { network ->
                     val previousNetwork = currentState.currentNetwork
-                    setState { copy(currentNetwork = networkMode) }
+                    setState { copy(currentNetwork = network) }
 
-                    // Reload data when network changes
-                    if (previousNetwork != networkMode && !currentState.isLoading) {
-                        refreshPortfolio()
+                    // Load lần đầu HOẶC khi network thay đổi
+                    if (!isInitialLoadDone) {
+                        isInitialLoadDone = true
+                        loadPortfolioWithNetwork(network)
+                    } else if (previousNetwork != network) {
+                        // Network changed -> refresh với network mới
+                        refreshPortfolioWithNetwork(network)
                     }
                 }
         }
@@ -62,11 +76,16 @@ class PortfolioViewModel @Inject constructor(
 
     // ==================== Load Portfolio ====================
 
-    private fun loadPortfolio() {
+    /**
+     * Load portfolio với network được truyền trực tiếp.
+     * Tránh đọc từ currentState để không bị race condition.
+     */
+    private fun loadPortfolioWithNetwork(network: NetworkMode) {
         viewModelScope.launch {
             setState { copy(isLoading = true, error = null) }
 
             try {
+                // Fetch auth state
                 val userAuthState = authRepository.getUserAuthState()
 
                 setState {
@@ -77,13 +96,15 @@ class PortfolioViewModel @Inject constructor(
                     )
                 }
 
+                // Load wallet data nếu có address
                 userAuthState.walletAddress?.let { address ->
-                    loadWalletData(address, showLoading = true)
+                    loadWalletData(address, network)
                 } ?: run {
+                    // Không có wallet -> hiển thị empty state
                     setState {
                         copy(
                             isLoading = false,
-                            tokens = buildTokenList(0.0, 3500.0),
+                            tokens = buildEmptyTokenList(network),
                             priceChanges = getMockPriceChanges()
                         )
                     }
@@ -100,17 +121,28 @@ class PortfolioViewModel @Inject constructor(
         }
     }
 
-    // ==================== Refresh ====================
+    /**
+     * Reload từ event (dùng network hiện tại trong state).
+     */
+    private fun reloadPortfolio() {
+        val network = currentState.currentNetwork
+        loadPortfolioWithNetwork(network)
+    }
 
-    private fun refreshPortfolio() {
-        if (!currentState.canRefresh) return
+    // ==================== Refresh Portfolio ====================
+
+    /**
+     * Refresh với network cụ thể (dùng khi network thay đổi).
+     */
+    private fun refreshPortfolioWithNetwork(network: NetworkMode) {
+        if (currentState.isLoading) return
 
         viewModelScope.launch {
             setState { copy(isRefreshing = true, error = null) }
 
             try {
                 currentState.walletAddress?.let { address ->
-                    loadWalletData(address, showLoading = false)
+                    loadWalletData(address, network)
                 }
             } catch (e: Exception) {
                 setEffect(PortfolioEffect.ShowToast("Refresh failed: ${e.message}"))
@@ -120,39 +152,95 @@ class PortfolioViewModel @Inject constructor(
         }
     }
 
-    // ==================== Wallet Data ====================
+    /**
+     * Pull-to-refresh từ UI.
+     */
+    private fun refreshPortfolio() {
+        if (!currentState.canRefresh) return
 
+        val network = currentState.currentNetwork
+        viewModelScope.launch {
+            setState { copy(isRefreshing = true, error = null) }
+
+            try {
+                currentState.walletAddress?.let { address ->
+                    loadWalletData(address, network)
+                }
+            } catch (e: Exception) {
+                setEffect(PortfolioEffect.ShowToast("Refresh failed: ${e.message}"))
+            } finally {
+                setState { copy(isRefreshing = false) }
+            }
+        }
+    }
+
+    // ==================== Load Wallet Data ====================
+
+    /**
+     * Load wallet data using use cases.
+     * Network được truyền trực tiếp để đảm bảo đúng chainId.
+     */
     private suspend fun loadWalletData(
         address: String,
-        showLoading: Boolean = true
+        network: NetworkMode
     ) {
         try {
-            val network = currentState.currentNetwork
-
-            // Fetch all portfolio data in parallel (from cache or API)
-            val portfolioData: PortfolioData = portfolioRepository.getPortfolioData(
-                walletAddress = address,
-                chainId = network.chainId
-            )
+            // Fetch all portfolio data in parallel using use cases
+            val balanceResult: Result<Double> = getBalanceUseCase(address, network)
+            val tokensResult: Result<List<TokenHolding>> = getTokenHoldingsUseCase(address, network)
+            val transactionsResult: Result<List<Transaction>> = getTransactionsUseCase(address, network, page = 1)
 
             // TODO: Fetch ETH price from price oracle (future)
             val ethPrice = 3500.0
 
+            // Process balance
+            val ethBalance = when (balanceResult) {
+                is Result.Success<Double> -> balanceResult.data
+                is Result.Error -> {
+                    setState { copy(error = "Failed to load balance: ${balanceResult.message}") }
+                    0.0
+                }
+                is Result.Loading -> 0.0
+            }
+
+            // Process tokens
+            val tokens = when (tokensResult) {
+                is Result.Success<List<TokenHolding>> -> tokensResult.data
+                is Result.Error -> {
+                    setState { copy(error = "Failed to load tokens: ${tokensResult.message}") }
+                    emptyList()
+                }
+                is Result.Loading -> emptyList()
+            }
+
+            // Process transactions
+            val transactions = when (transactionsResult) {
+                is Result.Success<List<Transaction>> -> transactionsResult.data
+                is Result.Error -> {
+                    setState { copy(error = "Failed to load transactions: ${transactionsResult.message}") }
+                    emptyList()
+                }
+                is Result.Loading -> emptyList()
+            }
+
             // Calculate total balance USD
-            val totalBalanceUsd = (portfolioData.balance * ethPrice) +
-                portfolioData.tokens.sumOf { it.balanceUsd }
+            val totalBalanceUsd = (ethBalance * ethPrice) + tokens.sumOf { token -> token.balanceUsd }
 
             setState {
                 copy(
                     isLoading = false,
-                    ethBalance = portfolioData.balance,
+                    ethBalance = ethBalance,
                     ethPriceUsd = ethPrice,
                     totalBalanceUsd = totalBalanceUsd,
-                    tokens = buildTokenList(portfolioData, ethPrice),
-                    transactions = portfolioData.transactions,
-                    priceChanges = getMockPriceChanges(),  // TODO: Real price changes
-                    error = if (portfolioData.hasErrors) {
-                        "Partial data loaded: ${portfolioData.errorMessage}"
+                    tokens = buildTokenList(ethBalance, tokens, ethPrice, network),
+                    transactions = transactions,
+                    currentPage = 1,
+                    hasMoreTransactions = transactions.isNotEmpty(),
+                    priceChanges = getMockPriceChanges(),
+                    error = if (balanceResult is Result.Error ||
+                        tokensResult is Result.Error ||
+                        transactionsResult is Result.Error) {
+                        currentState.error
                     } else null
                 )
             }
@@ -167,49 +255,63 @@ class PortfolioViewModel @Inject constructor(
         }
     }
 
+    // ==================== Build Token List ====================
+
     /**
      * Build token list with native ETH + ERC-20 tokens.
      */
     private fun buildTokenList(
-        portfolioData: PortfolioData,
-        ethPrice: Double
+        ethBalance: Double,
+        tokens: List<TokenHolding>,
+        ethPrice: Double,
+        network: NetworkMode
     ): List<TokenHolding> {
         val nativeToken = TokenHolding(
-            symbol = currentState.currentNetwork.symbol,
-            name = if (currentState.currentNetwork == NetworkMode.LINEA) {
-                "Linea ETH"
-            } else {
-                "Ethereum"
-            },
-            balance = portfolioData.balance,
-            balanceUsd = portfolioData.balance * ethPrice,
+            symbol = network.symbol,
+            name = getNativeTokenName(network),
+            balance = ethBalance,
+            balanceUsd = ethBalance * ethPrice,
             priceUsd = ethPrice,
-            priceChange24h = 2.34  // TODO: Real price change
+            priceChange24h = 2.34,  // TODO: Real price change
+            iconUrl = null
         )
 
-        return listOf(nativeToken) + portfolioData.tokens
+        return listOf(nativeToken) + tokens
     }
 
-    private fun buildTokenList(
-        ethBalance: Double,
-        ethPrice: Double
-    ): List<TokenHolding> {
-        val symbol = currentState.currentNetwork.symbol
+    /**
+     * Build empty token list khi không có wallet.
+     */
+    private fun buildEmptyTokenList(network: NetworkMode): List<TokenHolding> {
         return listOf(
             TokenHolding(
-                symbol = symbol,
-                name = if (currentState.currentNetwork == NetworkMode.LINEA) "Linea ETH" else "Ethereum",
-                balance = ethBalance,
-                balanceUsd = ethBalance * ethPrice,
-                priceUsd = ethPrice,
+                symbol = network.symbol,
+                name = getNativeTokenName(network),
+                balance = 0.0,
+                balanceUsd = 0.0,
+                priceUsd = 3500.0,
                 priceChange24h = 2.34,
                 iconUrl = null
             )
         )
     }
 
+    /**
+     * Get native token name based on network.
+     */
+    private fun getNativeTokenName(network: NetworkMode): String {
+        return when (network) {
+            NetworkMode.LINEA -> "Linea ETH"
+            NetworkMode.ETHEREUM -> "Ethereum"
+            // Add more networks as needed
+            else -> "ETH"
+        }
+    }
+
+    /**
+     * Mock price changes - TODO: Replace with real data.
+     */
     private fun getMockPriceChanges(): PriceChanges {
-        // TODO: Fetch real price changes from price oracle
         return PriceChanges(
             change15m = 0.12,
             change1h = 0.45,
@@ -234,8 +336,41 @@ class PortfolioViewModel @Inject constructor(
     // ==================== Load More Transactions ====================
 
     private fun loadMoreTransactions() {
-        if (currentState.isLoadingTransactions) return
-        // TODO: Implement pagination with repository
+        if (currentState.isLoadingTransactions || !currentState.hasMoreTransactions) return
+
+        val walletAddress = currentState.walletAddress ?: return
+        val network = currentState.currentNetwork
+
+        viewModelScope.launch {
+            setState { copy(isLoadingTransactions = true) }
+
+            val nextPage = currentState.currentPage + 1
+
+            when (val result: Result<List<Transaction>> = getTransactionsUseCase(walletAddress, network, nextPage)) {
+                is Result.Success<List<Transaction>> -> {
+                    val newTransactions = result.data
+                    setState {
+                        copy(
+                            isLoadingTransactions = false,
+                            currentPage = nextPage,
+                            transactions = transactions + newTransactions,
+                            hasMoreTransactions = newTransactions.isNotEmpty()
+                        )
+                    }
+                }
+                is Result.Error -> {
+                    setState {
+                        copy(
+                            isLoadingTransactions = false,
+                            error = "Failed to load more transactions: ${result.message}"
+                        )
+                    }
+                }
+                is Result.Loading -> {
+                    // Already loading
+                }
+            }
+        }
     }
 
     // ==================== Copy Address ====================
@@ -244,7 +379,6 @@ class PortfolioViewModel @Inject constructor(
         currentState.displayAddress?.let { address ->
             viewModelScope.launch {
                 setEffect(PortfolioEffect.CopyToClipboard(address))
-                setEffect(PortfolioEffect.ShowToast("Address copied"))
             }
         }
     }

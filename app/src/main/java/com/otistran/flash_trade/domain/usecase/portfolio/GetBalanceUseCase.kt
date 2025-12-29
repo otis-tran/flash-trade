@@ -2,6 +2,7 @@ package com.otistran.flash_trade.domain.usecase.portfolio
 
 import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.repository.PortfolioRepository
+import com.otistran.flash_trade.util.Result
 import javax.inject.Inject
 
 /**

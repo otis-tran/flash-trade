@@ -2,6 +2,7 @@ package com.otistran.flash_trade.domain.repository
 
 import com.otistran.flash_trade.presentation.feature.portfolio.TokenHolding
 import com.otistran.flash_trade.presentation.feature.portfolio.Transaction
+import com.otistran.flash_trade.util.Result
 
 /**
  * Repository interface for portfolio data operations.
