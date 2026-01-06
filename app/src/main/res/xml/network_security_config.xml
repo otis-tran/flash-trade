@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- For debug builds: allow all certificates (ONLY FOR DEVELOPMENT) -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+
+    <!-- For release builds: only system certificates -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Allow specific domains for development -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.etherscan.io</domain>
+        <domain includeSubdomains="true">kyberswap.com</domain>
+        <domain includeSubdomains="true">kyberengineering.io</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

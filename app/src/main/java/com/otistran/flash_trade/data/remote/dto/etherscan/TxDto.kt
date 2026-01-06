@@ -31,4 +31,11 @@ data class TxDto(
  * Response for txlist endpoint.
  * Returns list of normal transactions.
  */
-typealias TxListResponseDto = EtherscanBaseResponse<List<TxDto>>
+@JsonClass(generateAdapter = true)
+data class TxListResponseDto(
+    val status: String,
+    val message: String,
+    val result: List<TxDto>? = null
+) {
+    val isSuccess: Boolean get() = status == "1" && message == "OK"
+}

@@ -1,5 +1,5 @@
 package com.otistran.flash_trade.presentation.feature.auth
-import android.util.Log
+
 import androidx.lifecycle.viewModelScope
 import com.otistran.flash_trade.BuildConfig
 import com.otistran.flash_trade.core.base.BaseViewModel
@@ -10,9 +10,8 @@ import com.otistran.flash_trade.domain.usecase.auth.LoginUseCase
 import com.otistran.flash_trade.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
-
-private const val TAG = "LoginViewModel"
 
 /**
  * ViewModel for login screen.
@@ -53,13 +52,13 @@ class LoginViewModel @Inject constructor(
                     setState { copy(isCheckingSession = false) }
 
                     if (authState.isLoggedIn && authState.isSessionValid) {
-                        Log.d(TAG, "Valid session found, navigating to trading")
+                        Timber.d("Valid session found, navigating to trading")
                         setEffect(LoginEffect.NavigateToTrading)
                     }
                 }
 
                 is Result.Error -> {
-                    Log.w(TAG, "Check login status failed: ${result.message}")
+                    Timber.w("Check login status failed: ${result.message}")
                     setState { copy(isCheckingSession = false) }
                 }
 

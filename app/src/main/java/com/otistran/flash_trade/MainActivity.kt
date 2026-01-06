@@ -4,6 +4,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -24,7 +27,7 @@ import com.otistran.flash_trade.domain.usecase.auth.CheckLoginStatusUseCase
 import com.otistran.flash_trade.presentation.navigation.BottomNavBar
 import com.otistran.flash_trade.presentation.navigation.FlashTradeNavGraph
 import com.otistran.flash_trade.presentation.navigation.Login
-import com.otistran.flash_trade.presentation.navigation.TradingGraph
+import com.otistran.flash_trade.presentation.navigation.HomeGraph
 import com.otistran.flash_trade.presentation.navigation.rememberAppState
 import com.otistran.flash_trade.ui.theme.FlashTradeTheme
 import com.otistran.flash_trade.util.Result
@@ -79,7 +82,11 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
-                        if (appState.shouldShowBottomBar) {
+                        AnimatedVisibility(
+                            visible = appState.shouldShowBottomBar,
+                            enter = slideInVertically(initialOffsetY = { it }),
+                            exit = slideOutVertically(targetOffsetY = { it })
+                        ) {
                             BottomNavBar(
                                 destinations = appState.topLevelDestinations,
                                 currentDestination = appState.currentTopLevelDestination,
@@ -110,7 +117,7 @@ class MainActivity : ComponentActivity() {
                 is Result.Success -> {
                     val authState = authResult.data
                     if (authState.isLoggedIn && authState.isSessionValid) {
-                        TradingGraph
+                        HomeGraph
                     } else {
                         Login
                     }

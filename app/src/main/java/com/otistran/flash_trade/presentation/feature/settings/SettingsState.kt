@@ -7,7 +7,7 @@ import com.otistran.flash_trade.domain.model.ThemeMode
 
 @Stable
 data class SettingsState(
-    val networkMode: NetworkMode = NetworkMode.LINEA,
+    val networkMode: NetworkMode = NetworkMode.ETHEREUM,
     val themeMode: ThemeMode = ThemeMode.DARK,
     val isAutoSellEnabled: Boolean = true,
     val isLoading: Boolean = true,

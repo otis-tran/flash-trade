@@ -1,56 +1,47 @@
 package com.otistran.flash_trade.domain.repository
 
-import com.otistran.flash_trade.domain.model.EncodedSwap
-import com.otistran.flash_trade.domain.model.Quote
-import com.otistran.flash_trade.domain.model.SwapResult
+import com.otistran.flash_trade.data.remote.dto.kyber.RouteSummary
+import com.otistran.flash_trade.domain.model.EncodedRouteResponse
+import com.otistran.flash_trade.domain.model.RouteSummaryResponse
+import com.otistran.flash_trade.domain.model.SwapQuote
 import com.otistran.flash_trade.util.Result
+import io.privy.wallet.ethereum.EmbeddedEthereumWallet
 import java.math.BigInteger
 
 /**
  * Repository for swap operations.
  */
 interface SwapRepository {
+    suspend fun getRoutes(
+        chain: String,
+        tokenIn: String,
+        tokenOut: String,
+        amountIn: BigInteger
+    ): Result<RouteSummaryResponse>
 
-    /**
-     * Get swap quote from KyberSwap Aggregator.
-     * @param chain Chain identifier (e.g., "base")
-     * @param tokenIn Input token address
-     * @param tokenOut Output token address
-     * @param amountIn Amount in wei
-     * @param slippageTolerance Slippage in bps (default 10 = 0.1%)
-     * @param userAddress User wallet address for exclusive pools
-     * @return Quote or error
-     */
     suspend fun getQuote(
         chain: String,
         tokenIn: String,
         tokenOut: String,
         amountIn: BigInteger,
-        slippageTolerance: Int = 10,
-        userAddress: String? = null
-    ): Result<Quote>
+        tokenInDecimals: Int,
+        tokenOutDecimals: Int
+    ): Result<SwapQuote>
 
-    /**
-     * Build encoded swap transaction.
-     * @param chain Chain identifier
-     * @param quote Quote to execute
-     * @param senderAddress User wallet address
-     * @param recipientAddress Recipient address (default = sender)
-     * @return Encoded swap data or error
-     */
-    suspend fun buildSwap(
+    suspend fun buildEncodedRoute(
         chain: String,
-        quote: Quote,
+        routeSummary: RouteSummaryResponse,
         senderAddress: String,
-        recipientAddress: String? = null
-    ): Result<EncodedSwap>
+        recipientAddress: String? = null,
+        permit: String? = null,
+        deadline: Long? = null
+    ): Result<EncodedRouteResponse>
 
-    /**
-     * Execute swap transaction via Privy wallet.
-     * @param encodedSwap Encoded transaction data
-     * @return Transaction hash or error
-     */
-    suspend fun executeSwap(
-        encodedSwap: EncodedSwap
-    ): Result<SwapResult>
+    suspend fun signTransaction(
+        wallet: EmbeddedEthereumWallet,
+        encodedRoute: EncodedRouteResponse,
+        chainId: String,
+        senderAddress: String
+    ): Result<String>
 }
+

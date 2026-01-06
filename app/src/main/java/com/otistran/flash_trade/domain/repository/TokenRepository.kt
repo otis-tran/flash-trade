@@ -1,8 +1,10 @@
 package com.otistran.flash_trade.domain.repository
 
+import androidx.paging.PagingData
+import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.model.Token
+import com.otistran.flash_trade.domain.model.TokenDisplayFilter
 import com.otistran.flash_trade.domain.model.TokenFilter
-import com.otistran.flash_trade.domain.model.TokenListResult
 import com.otistran.flash_trade.util.Result
 import kotlinx.coroutines.flow.Flow
 
@@ -11,28 +13,16 @@ import kotlinx.coroutines.flow.Flow
  */
 interface TokenRepository {
 
-    /**
-     * Get paginated token list with filters.
-     */
-    suspend fun getTokens(filter: TokenFilter = TokenFilter()): Result<TokenListResult>
+    suspend fun getTokenByAddress(
+        address: String,
+        networkMode: NetworkMode = NetworkMode.DEFAULT
+    ): Result<Token?>
 
-    /**
-     * Get single token by address.
-     */
-    suspend fun getTokenByAddress(address: String): Result<Token?>
-
-    /**
-     * Search tokens by name or symbol.
-     */
     suspend fun searchTokens(query: String, limit: Int = 20): Result<List<Token>>
 
-    /**
-     * Get verified/whitelisted tokens only (safe to trade).
-     */
-    suspend fun getSafeTokens(page: Int = 1, limit: Int = 50): Result<TokenListResult>
+    fun getPagedTokens(filter: TokenFilter = TokenFilter()): Flow<PagingData<Token>>
 
-    /**
-     * Observe cached tokens (for offline support).
-     */
-    fun observeTokens(): Flow<List<Token>>
+    fun getPagedTokensFiltered(displayFilter: TokenDisplayFilter, networkMode: NetworkMode): Flow<PagingData<Token>>
+
+    fun searchPagedTokens(query: String, safeOnly: Boolean = false, networkMode: NetworkMode = NetworkMode.DEFAULT): Flow<PagingData<Token>>
 }

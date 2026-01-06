@@ -19,11 +19,13 @@ class AppState(val navController: NavHostController) {
 
     /**
      * Determines if bottom navigation bar should be visible.
-     * Show on main tab screens, hide on auth and detail screens.
+     * Show on main tab screens (except Swap), hide on auth, detail, and swap screens.
      */
     val shouldShowBottomBar: Boolean
         @Composable get() {
             val destination = currentDestination ?: return false
+            // Hide bottom bar on swap screen to maximize space
+            if (destination.hasRoute(SwapMainScreen::class)) return false
             return TOP_LEVEL_ROUTES.any { destination.hasRoute(it::class) }
         }
 
@@ -59,17 +61,19 @@ class AppState(val navController: NavHostController) {
     }
 
     companion object {
-        /** Routes that show bottom bar */
+        /** Routes that show bottom bar (excludes SwapMainScreen for fullscreen swap) */
         private val TOP_LEVEL_ROUTES = listOf(
-            TradingGraph, TradingScreen,
-            PortfolioGraph, PortfolioScreen,
+            HomeGraph, HomeScreen,
+            SwapGraph, // SwapMainScreen excluded for full-screen experience
+            ActivityGraph, ActivityScreen,
             SettingsGraph, SettingsScreen
         )
 
         /** Map destinations to their routes */
         private val ROUTE_TO_DESTINATION = mapOf(
-            TopLevelDestination.TRADING to listOf(TradingGraph, TradingScreen),
-            TopLevelDestination.PORTFOLIO to listOf(PortfolioGraph, PortfolioScreen),
+            TopLevelDestination.HOME to listOf(HomeGraph, HomeScreen),
+            TopLevelDestination.SWAP to listOf(SwapGraph, SwapMainScreen),
+            TopLevelDestination.ACTIVITY to listOf(ActivityGraph, ActivityScreen),
             TopLevelDestination.SETTINGS to listOf(SettingsGraph, SettingsScreen)
         )
     }

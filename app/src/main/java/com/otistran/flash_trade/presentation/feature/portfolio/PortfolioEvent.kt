@@ -9,10 +9,17 @@ import com.otistran.flash_trade.core.base.UiEvent
 @Immutable
 sealed class PortfolioEvent : UiEvent {
     data object LoadPortfolio : PortfolioEvent()
-    data object RefreshPortfolio : PortfolioEvent()
     data object CopyWalletAddress : PortfolioEvent()
-    data class SelectTimeframe(val timeframe: Timeframe) : PortfolioEvent()
-    data class OpenTransactionDetails(val txHash: String) : PortfolioEvent()
-    data object LoadMoreTransactions : PortfolioEvent()
+    data class SelectAssetTab(val tab: AssetTab) : PortfolioEvent()
     data object DismissError : PortfolioEvent()
+
+    // Quick Actions
+    data object OnBuyClick : PortfolioEvent()
+    data object OnSwapClick : PortfolioEvent()
+    data object OnSendClick : PortfolioEvent()
+    data object OnReceiveClick : PortfolioEvent()
+
+    // QR Sheet
+    data object ShowQRSheet : PortfolioEvent()
+    data object HideQRSheet : PortfolioEvent()
 }

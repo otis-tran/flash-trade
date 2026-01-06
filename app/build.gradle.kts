@@ -6,7 +6,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.ethers.abigen)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -33,6 +32,8 @@ android {
         // Etherscan API Key
         buildConfigField("String", "ETHERSCAN_API_KEY", "\"${properties.getProperty("ETHERSCAN_API_KEY") ?: ""}\"")
 
+        // Alchemy API Key (for Prices API)
+        buildConfigField("String", "ALCHEMY_API_KEY", "\"${properties.getProperty("ALCHEMY_API_KEY") ?: ""}\"")
 
         // Privy auth config
         buildConfigField("String", "PRIVY_RELYING_PARTY", "\"https://flash-trade-assetlinks.netlify.app\"")
@@ -75,11 +76,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-        freeCompilerArgs += listOf(
-            "-Xskip-metadata-version-check"
-        )
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            freeCompilerArgs.addAll("-Xskip-metadata-version-check")
+        }
     }
     buildFeatures {
         compose = true
@@ -112,6 +113,18 @@ android {
     // Optimize compose compiler
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
+    }
+
+    // Rename APK output
+    applicationVariants.all {
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output.outputFileName = if (buildType.name == "release") {
+                "flash-trade.apk"
+            } else {
+                "flash-trade-debug.apk"
+            }
+        }
     }
 }
 
@@ -162,20 +175,19 @@ dependencies {
     // Database
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.room.paging)
     ksp(libs.androidx.room.compiler)
+
+    // Paging 3
+    implementation(libs.androidx.paging.runtime)
+    implementation(libs.androidx.paging.compose)
 
     // QR code generation
     implementation(libs.zxing.core)
 
     // Web3
     implementation(libs.privy.core)
-    implementation(platform(libs.ethers.bom))
-
-    // Individual (recommended with BOM)
-    implementation(libs.ethers.abi)
-    implementation(libs.ethers.core)
-    implementation(libs.ethers.providers)
-    implementation(libs.ethers.signers)
+    implementation(libs.web3j.core)
 
     // Credentials API for passkey
     implementation(libs.androidx.credentials)
@@ -194,18 +206,17 @@ dependencies {
     //
     implementation(libs.okhttp.logging)
 
-    // Camera for scanning
-    implementation(libs.androidx.camera.camera2)
-    implementation(libs.androidx.camera.lifecycle)
-    implementation(libs.androidx.camera.view)
+    // Logging
+    implementation(libs.timber)
 
-    // CameraX ML Kit barcode scanning
-    implementation(libs.barcode.scanning)
+    // Camera for scanning (disabled - app only generates QR codes)
+    // implementation(libs.androidx.camera.camera2)
+    // implementation(libs.androidx.camera.lifecycle)
+    // implementation(libs.androidx.camera.view)
+
+    // CameraX ML Kit barcode scanning (disabled - not used)
+    // implementation(libs.barcode.scanning)
 
     // Debug only - won't be in release APK
     debugImplementation(libs.androidx.compose.ui.tooling)
-
-    // Testing
-    testImplementation(libs.junit)
-    testImplementation(libs.kotlinx.coroutines.test)
 }

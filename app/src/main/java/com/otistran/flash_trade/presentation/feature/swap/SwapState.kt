@@ -2,91 +2,152 @@ package com.otistran.flash_trade.presentation.feature.swap
 
 import androidx.compose.runtime.Stable
 import com.otistran.flash_trade.core.base.UiState
-import com.otistran.flash_trade.domain.model.Quote
+import com.otistran.flash_trade.domain.model.NetworkMode
+import com.otistran.flash_trade.domain.model.PriceImpactLevel
+import com.otistran.flash_trade.domain.model.SwapQuote
 import com.otistran.flash_trade.domain.model.Token
 import java.math.BigDecimal
 import java.math.RoundingMode
 
+/**
+ * State for Swap screen.
+ *
+ * Design doc: Section 2 - Swap Screen
+ * - Two sections: "Sell Token" (top) and "Buy Token" (bottom)
+ * - Swap trigger button between sections
+ * - Quote details box when amount entered
+ */
 @Stable
 data class SwapState(
-    val tokenFrom: Token? = null,
-    val tokenTo: Token? = null,
-    val amount: String = "",
-    val quote: Quote? = null,
+    // Network
+    val network: NetworkMode = NetworkMode.DEFAULT,
+
+    // Tokens
+    val sellToken: SwapToken? = null,
+    val buyToken: SwapToken? = null,
+
+    // Amounts
+    val sellAmount: String = "",
+    val buyAmount: String = "",
+    val sellAmountUsd: String = "",
+    val buyAmountUsd: String = "",
+
+    // Token prices (for display)
+    val sellTokenPrice: Double = 0.0,
+    val buyTokenPrice: Double = 0.0,
+
+    // Quote from Kyber API
+    val quote: SwapQuote? = null,
+    val quoteTimestamp: Long = 0L,
+    val quoteExpiresInSeconds: Int = 0,
+    val isQuoteStale: Boolean = false,
+
+    // Slippage
+    val slippage: Double = 0.5, // Default 0.5%
+    val showSlippageDialog: Boolean = false,
+
+    // UI State
     val isLoadingQuote: Boolean = false,
+    val isPricesLoading: Boolean = false,
+    val isBalancesLoading: Boolean = false,
     val isExecuting: Boolean = false,
-    val error: String? = null,
-    val txHash: String? = null,
-    val quoteExpired: Boolean = false,
-    val userBalance: String = "0.0",
+    val isApproving: Boolean = false,
+    val showTokenSelector: Boolean = false,
+    val isSelectingSellToken: Boolean = true, // true = selecting sell token, false = selecting buy token
+    val tokenSearchQuery: String = "",
 
-    // Slippage settings
-    val slippageTolerance: Double = 0.5, // Default 0.5%
-    val showSlippageSettings: Boolean = false,
+    // Token filter state
+    val showSafeTokensOnly: Boolean = false,  // Default shows all tokens
 
-    // Price impact
-    val priceImpact: Double? = null
+    // Error
+    val error: String? = null
 ) : UiState {
 
-    val isValid: Boolean
-        get() = tokenFrom != null &&
-                tokenTo != null &&
-                amount.isNotEmpty() &&
-                amount.toDoubleOrNull() != null &&
-                amount.toDoubleOrNull()!! > 0 &&
-                quote != null &&
-                !quoteExpired
+    // Computed properties from quote
+    val displayExchangeRate: String
+        get() = quote?.let { q ->
+            "1 ${sellToken?.symbol} = ${q.formattedExchangeRate} ${buyToken?.symbol}"
+        } ?: ""
+
+    val displayNetworkFee: String
+        get() = quote?.formattedNetworkFee ?: ""
+
+    val displayPriceImpact: String
+        get() = quote?.formattedPriceImpact ?: ""
+
+    val priceImpactColor: PriceImpactLevel
+        get() = when {
+            quote?.isPriceImpactHigh == true -> PriceImpactLevel.HIGH
+            quote?.isPriceImpactMedium == true -> PriceImpactLevel.MEDIUM
+            else -> PriceImpactLevel.LOW
+        }
+
+    val showQuoteCountdown: Boolean
+        get() = quote != null && quoteExpiresInSeconds > 0
+
+    val hasValidSellAmount: Boolean
+        get() = sellAmount.isNotBlank() && sellAmount.toBigDecimalOrNull()?.let { it > BigDecimal.ZERO } == true
+
+    val hasValidQuote: Boolean
+        get() = hasValidSellAmount && quote != null && buyAmount.isNotBlank()
 
     val canSwap: Boolean
-        get() = isValid && !isExecuting && !isLoadingQuote
+        get() = !isExecuting && !isApproving &&
+                sellToken != null &&
+                buyToken != null &&
+                hasValidQuote &&
+                !insufficientBalance
 
-    val displayRate: String
+    val insufficientBalance: Boolean
         get() {
-            if (quote == null || tokenFrom == null || tokenTo == null) return "-"
-            val amountIn = quote.amountIn.toBigDecimal()
-            val amountOut = quote.amountOut.toBigDecimal()
-            if (amountIn == BigDecimal.ZERO) return "-"
-            val rate = amountOut.divide(amountIn, 8, RoundingMode.HALF_UP)
-            return "1 ${tokenFrom.symbol} ≈ ${rate.stripTrailingZeros().toPlainString()} ${tokenTo.symbol}"
+            val sellAmt = sellAmount.toBigDecimalOrNull() ?: return false
+            val balance = sellToken?.balance ?: return false
+            return sellAmt > balance
         }
 
-    val estimatedOutput: String
-        get() {
-            if (quote == null || tokenTo == null) return "-"
-            val amountOut = quote.amountOut.toBigDecimal()
-            val divisor = BigDecimal.TEN.pow(tokenTo.decimals)
-            val formatted = amountOut.divide(divisor, 6, RoundingMode.HALF_DOWN)
-            return formatted.stripTrailingZeros().toPlainString()
+    val ctaButtonText: String
+        get() = when {
+            isApproving -> "Approving..."
+            isExecuting -> "Swapping..."
+            sellToken == null -> "Select token to sell"
+            buyToken == null -> "Select token to buy"
+            !hasValidSellAmount -> "Enter amount"
+            insufficientBalance -> "Insufficient balance"
+            else -> "Swap"
         }
 
-    val formattedSlippage: String
-        get() = "${slippageTolerance}%"
-
-    val formattedPriceImpact: String
-        get() = priceImpact?.let { "${String.format("%.2f", it)}%" } ?: "-"
-
-    val isPriceImpactHigh: Boolean
-        get() = (priceImpact ?: 0.0) > 3.0
-
-    val isPriceImpactVeryHigh: Boolean
-        get() = (priceImpact ?: 0.0) > 10.0
-
-    val minimumReceived: String
-        get() {
-            if (quote == null || tokenTo == null) return "-"
-            val amountOut = quote.amountOut.toBigDecimal()
-            val divisor = BigDecimal.TEN.pow(tokenTo.decimals)
-            val formatted = amountOut.divide(divisor, 6, RoundingMode.HALF_DOWN)
-            val withSlippage = formatted.multiply(BigDecimal.ONE.minus(BigDecimal(slippageTolerance / 100)))
-            return "${withSlippage.setScale(6, RoundingMode.HALF_DOWN).stripTrailingZeros().toPlainString()} ${tokenTo.symbol}"
-        }
+    val ctaButtonEnabled: Boolean
+        get() = canSwap
 }
 
 /**
- * Preset slippage options.
+ * Token representation for swap UI.
  */
-enum class SlippageOption(val value: Double, val label: String) {
-    LOW(0.1, "0.1%"),
-    MEDIUM(0.5, "0.5%"),
-    HIGH(1.0, "1.0%")
+@Stable
+data class SwapToken(
+    val address: String,
+    val symbol: String,
+    val name: String,
+    val decimals: Int,
+    val logoUrl: String?,
+    val balance: BigDecimal = BigDecimal.ZERO,
+    val priceUsd: Double = 0.0
+) {
+    val formattedBalance: String
+        get() = if (balance < BigDecimal("0.0001")) "<0.0001" else balance.setScale(4, java.math.RoundingMode.DOWN).toPlainString()
+}
+
+/**
+ * Convert domain Token to SwapToken.
+ */
+fun Token.toSwapToken(balance: BigDecimal = BigDecimal.ZERO, priceUsd: Double = 0.0): SwapToken {
+    return SwapToken(
+        address = address,
+        symbol = symbol ?: "???",
+        name = name ?: symbol ?: "Unknown",
+        decimals = decimals,
+        logoUrl = logoUrl,
+        balance = balance,
+        priceUsd = priceUsd
+    )
 }

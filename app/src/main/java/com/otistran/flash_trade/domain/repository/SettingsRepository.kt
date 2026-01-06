@@ -34,7 +34,20 @@ interface SettingsRepository {
     suspend fun setAutoSellEnabled(enabled: Boolean)
 
     /**
+     * Gets the default slippage tolerance.
+     * @return Slippage percentage (e.g., 0.5 for 0.5%)
+     */
+    suspend fun getDefaultSlippage(): Double
+
+    /**
+     * Updates the default slippage tolerance.
+     * @param slippage Slippage percentage (e.g., 0.5 for 0.5%)
+     */
+    suspend fun setDefaultSlippage(slippage: Double)
+
+    /**
      * Clears all settings (for logout).
      */
     suspend fun clearSettings()
 }
+

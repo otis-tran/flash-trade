@@ -10,5 +10,5 @@ import com.otistran.flash_trade.core.base.UiEffect
 sealed class PortfolioEffect : UiEffect {
     data class ShowToast(val message: String) : PortfolioEffect()
     data class CopyToClipboard(val text: String) : PortfolioEffect()
-    data class OpenExplorerTx(val txHash: String, val explorerUrl: String) : PortfolioEffect()
+    data object NavigateToSwap : PortfolioEffect()
 }

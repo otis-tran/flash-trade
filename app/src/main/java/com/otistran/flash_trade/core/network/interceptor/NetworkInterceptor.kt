@@ -43,5 +43,5 @@ class NetworkInterceptor @Inject constructor(
  * Exception thrown when no network connectivity is available.
  */
 class NoConnectivityException(
-    message: String = "Không có kết nối mạng. Vui lòng kiểm tra kết nối internet."
+    message: String = "No internet."
 ) : IOException(message)

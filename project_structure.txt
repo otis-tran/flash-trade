@@ -44,8 +44,7 @@
 |       |   |               |   |       |-- ErrorMessage.kt
 |       |   |               |   |       |-- ErrorView.kt
 |       |   |               |   |       |-- LoadingIndicator.kt
-|       |   |               |   |       |-- NetworkSelectorBottomSheet.kt
-|       |   |               |   |       `-- TokenSelectorBottomSheet.kt
+|       |   |               |   |       `-- NetworkSelectorBottomSheet.kt
 |       |   |               |   `-- util
 |       |   |               |       |-- Constants.kt
 |       |   |               |       |-- DateUtils.kt
@@ -53,18 +52,22 @@
 |       |   |               |       `-- QRCodeGenerator.kt
 |       |   |               |-- data
 |       |   |               |   |-- local
-|       |   |               |   |   |-- dao
 |       |   |               |   |   |-- database
 |       |   |               |   |   |   |-- FlashTradeDatabase.kt
 |       |   |               |   |   |   `-- dao
+|       |   |               |   |   |       |-- TokenDao.kt
 |       |   |               |   |   |       `-- TransactionDao.kt
 |       |   |               |   |   `-- entity
+|       |   |               |   |       |-- TokenEntity.kt
+|       |   |               |   |       |-- TokenRemoteKeysEntity.kt
 |       |   |               |   |       `-- TransactionEntity.kt
 |       |   |               |   |-- mapper
 |       |   |               |   |   |-- EtherscanMapper.kt
 |       |   |               |   |   |-- SwapMapper.kt
 |       |   |               |   |   |-- TokenMapper.kt
 |       |   |               |   |   `-- UserMapper.kt
+|       |   |               |   |-- paging
+|       |   |               |   |   `-- TokenRemoteMediator.kt
 |       |   |               |   |-- remote
 |       |   |               |   |   |-- api
 |       |   |               |   |   |   |-- EtherscanApiService.kt
@@ -97,6 +100,7 @@
 |       |   |               |   |-- AppModule.kt
 |       |   |               |   |-- AuthModule.kt
 |       |   |               |   |-- DatabaseModule.kt
+|       |   |               |   |-- KyberApiModule.kt
 |       |   |               |   |-- NetworkModule.kt
 |       |   |               |   |-- PortfolioModule.kt
 |       |   |               |   |-- PrivyProvider.kt
@@ -138,7 +142,8 @@
 |       |   |               |       |   |-- ExecuteSwapUseCase.kt
 |       |   |               |       |   `-- GetSwapQuoteUseCase.kt
 |       |   |               |       `-- token
-|       |   |               |           |-- GetTokensUseCase.kt
+|       |   |               |           |-- GetFilteredTokensUseCase.kt
+|       |   |               |           |-- GetPagedTokensUseCase.kt
 |       |   |               |           `-- SearchTokensUseCase.kt
 |       |   |               |-- presentation
 |       |   |               |   |-- feature
@@ -178,7 +183,9 @@
 |       |   |               |   |       |-- TradingEvent.kt
 |       |   |               |   |       |-- TradingScreen.kt
 |       |   |               |   |       |-- TradingState.kt
-|       |   |               |   |       `-- TradingViewModel.kt
+|       |   |               |   |       |-- TradingViewModel.kt
+|       |   |               |   |       `-- components
+|       |   |               |   |           `-- SafeGreen.kt
 |       |   |               |   `-- navigation
 |       |   |               |       |-- AppState.kt
 |       |   |               |       |-- BottomNavBar.kt
@@ -336,6 +343,21 @@
 |   |       `-- scout-01-codebase-files.md
 |   |-- 251220-token-prefetch-splash
 |   |   `-- plan.md
+|   |-- 251225-paging3-room-token-pagination
+|   |   |-- README.md
+|   |   |-- phase-01-database-layer.md
+|   |   |-- phase-02-paging-infrastructure.md
+|   |   |-- phase-03-repository-integration.md
+|   |   |-- phase-04-ui-integration.md
+|   |   |-- phase-05-performance-optimization.md
+|   |   |-- plan.md
+|   |   `-- reports
+|   |       |-- 251225-from-code-reviewer-to-orchestrator-phase-01-database-layer-review.md
+|   |       |-- 251225-from-code-reviewer-to-orchestrator-phase-02-paging-infrastructure-review.md
+|   |       |-- 251226-from-code-reviewer-to-orchestrator-phase-03-repository-integration-review.md
+|   |       |-- 251226-from-code-reviewer-to-orchestrator-phase-04-ui-integration-review.md
+|   |       |-- PHASE-01-COMPLETION-STATUS.md
+|   |       `-- PHASE-02-COMPLETION-STATUS.md
 |   |-- 251225-portfolio-feature
 |   |   |-- phase-01-etherscan-api-integration.md
 |   |   |-- phase-02-portfolio-repository.md
@@ -362,8 +384,11 @@
 |   |   |-- 251214-code-reviewer-phase02-bottom-nav-review.md
 |   |   |-- 251214-mvi-architecture-test-report.md
 |   |   |-- 251220-tester-phase1-api-test-report.md
+|   |   |-- 251225-paging3-plan-summary.md
 |   |   |-- 251225-portfolio-feature-plan.md
+|   |   |-- 251226-from-code-reviewer-to-user-phase-05-prefetch-review.md
 |   |   |-- brainstorm-251219-kyberswap-integration.md
+|   |   |-- brainstorm-251225-pagination-architecture.md
 |   |   |-- mvi-architecture-review.md
 |   |   |-- scout-android-app-structure-251212.md
 |   |   `-- scout-report.md
@@ -375,4 +400,4 @@
 |-- project_structure.txt
 `-- settings.gradle.kts
 
-113 directories, 262 files
+116 directories, 284 files

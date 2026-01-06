@@ -4,71 +4,63 @@ import androidx.lifecycle.viewModelScope
 import com.otistran.flash_trade.core.base.BaseViewModel
 import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.repository.AuthRepository
-import com.otistran.flash_trade.domain.repository.PortfolioData
-import com.otistran.flash_trade.domain.repository.PortfolioRepository
 import com.otistran.flash_trade.domain.repository.SettingsRepository
+import com.otistran.flash_trade.domain.usecase.portfolio.GetTokensByAddressUseCase
+import com.otistran.flash_trade.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
 class PortfolioViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val settingsRepository: SettingsRepository,
-    private val portfolioRepository: PortfolioRepository
+    private val getTokensByAddressUseCase: GetTokensByAddressUseCase,
 ) : BaseViewModel<PortfolioState, PortfolioEvent, PortfolioEffect>(
     initialState = PortfolioState()
 ) {
+    private var loadJob: Job? = null
 
     init {
-        observeNetworkMode()
-        onEvent(PortfolioEvent.LoadPortfolio)
+        observeNetworkMode(settingsRepository) { network ->
+            setState { copy(currentNetwork = network) }
+            loadPortfolioWithNetwork(network)
+        }
     }
 
     override fun onEvent(event: PortfolioEvent) {
         when (event) {
-            PortfolioEvent.LoadPortfolio -> loadPortfolio()
-            PortfolioEvent.RefreshPortfolio -> refreshPortfolio()
+            PortfolioEvent.LoadPortfolio -> refreshPortfolio()
             PortfolioEvent.CopyWalletAddress -> copyWalletAddress()
-            is PortfolioEvent.SelectTimeframe -> selectTimeframe(event.timeframe)
-            is PortfolioEvent.OpenTransactionDetails -> openTransactionDetails(event.txHash)
-            PortfolioEvent.LoadMoreTransactions -> loadMoreTransactions()
+            is PortfolioEvent.SelectAssetTab -> selectAssetTab(event.tab)
             PortfolioEvent.DismissError -> setState { copy(error = null) }
+            // Quick Actions
+            PortfolioEvent.OnBuyClick -> setEffect(PortfolioEffect.ShowToast("Buy coming soon"))
+            PortfolioEvent.OnSwapClick -> setEffect(PortfolioEffect.NavigateToSwap)
+            PortfolioEvent.OnSendClick -> setEffect(PortfolioEffect.ShowToast("Send coming soon"))
+            PortfolioEvent.OnReceiveClick -> setState { copy(showQRSheet = true) }
+            // QR Sheet
+            PortfolioEvent.ShowQRSheet -> setState { copy(showQRSheet = true) }
+            PortfolioEvent.HideQRSheet -> setState { copy(showQRSheet = false) }
         }
     }
 
-    // ==================== Observe Network from Settings ====================
-
-    private fun observeNetworkMode() {
-        viewModelScope.launch {
-            settingsRepository.observeSettings()
-                .map { it.networkMode }
-                .distinctUntilChanged()
-                .catch { /* Ignore errors, use default */ }
-                .collect { networkMode ->
-                    val previousNetwork = currentState.currentNetwork
-                    setState { copy(currentNetwork = networkMode) }
-
-                    // Reload data when network changes
-                    if (previousNetwork != networkMode && !currentState.isLoading) {
-                        refreshPortfolio()
-                    }
-                }
-        }
-    }
-
-    // ==================== Load Portfolio ====================
-
-    private fun loadPortfolio() {
-        viewModelScope.launch {
-            setState { copy(isLoading = true, error = null) }
+    /**
+     * Load portfolio with network passed directly.
+     * Cancels previous load job to prevent race conditions.
+     */
+    private fun loadPortfolioWithNetwork(network: NetworkMode) {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            setState { copy(isLoadingTokens = true, error = null) }
 
             try {
+                // Fetch auth state
                 val userAuthState = authRepository.getUserAuthState()
-
                 setState {
                     copy(
                         userName = userAuthState.displayName ?: "User",
@@ -77,14 +69,15 @@ class PortfolioViewModel @Inject constructor(
                     )
                 }
 
+                // Load wallet data if address available
                 userAuthState.walletAddress?.let { address ->
-                    loadWalletData(address, showLoading = true)
+                    loadWalletData(address, network)
                 } ?: run {
                     setState {
                         copy(
-                            isLoading = false,
-                            tokens = buildTokenList(0.0, 3500.0),
-                            priceChanges = getMockPriceChanges()
+                            isLoadingTokens = false,
+                            tokens = emptyList(),
+                            totalBalanceUsd = null
                         )
                     }
                 }
@@ -92,7 +85,7 @@ class PortfolioViewModel @Inject constructor(
             } catch (e: Exception) {
                 setState {
                     copy(
-                        isLoading = false,
+                        isLoadingTokens = false,
                         error = e.message ?: "Failed to load portfolio"
                     )
                 }
@@ -100,17 +93,19 @@ class PortfolioViewModel @Inject constructor(
         }
     }
 
-    // ==================== Refresh ====================
-
+    /**
+     * Pull-to-refresh from UI.
+     */
     private fun refreshPortfolio() {
         if (!currentState.canRefresh) return
 
+        val network = currentState.currentNetwork
         viewModelScope.launch {
             setState { copy(isRefreshing = true, error = null) }
 
             try {
                 currentState.walletAddress?.let { address ->
-                    loadWalletData(address, showLoading = false)
+                    loadWalletData(address, network)
                 }
             } catch (e: Exception) {
                 setEffect(PortfolioEffect.ShowToast("Refresh failed: ${e.message}"))
@@ -120,132 +115,77 @@ class PortfolioViewModel @Inject constructor(
         }
     }
 
-    // ==================== Wallet Data ====================
+    // ==================== Load Wallet Data ====================
 
+    /**
+     * Load wallet data using Alchemy Portfolio API.
+     * Single API call for tokens + prices. Transactions fetched in parallel.
+     */
     private suspend fun loadWalletData(
         address: String,
-        showLoading: Boolean = true
+        network: NetworkMode
     ) {
+        Timber.d("loadWalletData() START - address=$address, network=$network")
         try {
-            val network = currentState.currentNetwork
-
-            // Fetch all portfolio data in parallel (from cache or API)
-            val portfolioData: PortfolioData = portfolioRepository.getPortfolioData(
-                walletAddress = address,
-                chainId = network.chainId
-            )
-
-            // TODO: Fetch ETH price from price oracle (future)
-            val ethPrice = 3500.0
-
-            // Calculate total balance USD
-            val totalBalanceUsd = (portfolioData.balance * ethPrice) +
-                portfolioData.tokens.sumOf { it.balanceUsd }
-
-            setState {
-                copy(
-                    isLoading = false,
-                    ethBalance = portfolioData.balance,
-                    ethPriceUsd = ethPrice,
-                    totalBalanceUsd = totalBalanceUsd,
-                    tokens = buildTokenList(portfolioData, ethPrice),
-                    transactions = portfolioData.transactions,
-                    priceChanges = getMockPriceChanges(),  // TODO: Real price changes
-                    error = if (portfolioData.hasErrors) {
-                        "Partial data loaded: ${portfolioData.errorMessage}"
-                    } else null
-                )
+            // Fetch tokens
+            val tokensResult = coroutineScope {
+                val tokensDeferred = async { getTokensByAddressUseCase(address, network) }
+                tokensDeferred.await()
             }
 
+            // Process tokens result
+            when (tokensResult) {
+                is Result.Success -> {
+                    val data = tokensResult.data
+                    Timber.d("Tokens: ${data.tokens.size}, Total: $${data.totalBalanceUsd}")
+                    setState {
+                        copy(
+                            isLoadingTokens = false,
+                            tokens = data.tokens,
+                            totalBalanceUsd = data.totalBalanceUsd
+                        )
+                    }
+                }
+
+                is Result.Error -> {
+                    Timber.e("Tokens error: ${tokensResult.message}")
+                    setState {
+                        copy(
+                            isLoadingTokens = false,
+                            error = tokensResult.message
+                        )
+                    }
+                    setEffect(PortfolioEffect.ShowToast(tokensResult.message))
+                }
+
+                Result.Loading -> {}
+            }
         } catch (e: Exception) {
             setState {
                 copy(
-                    isLoading = false,
+                    isLoadingTokens = false,
                     error = "Failed to load wallet data: ${e.message}"
                 )
             }
+            setEffect(PortfolioEffect.ShowToast("Failed to load portfolio"))
         }
     }
 
-    /**
-     * Build token list with native ETH + ERC-20 tokens.
-     */
-    private fun buildTokenList(
-        portfolioData: PortfolioData,
-        ethPrice: Double
-    ): List<TokenHolding> {
-        val nativeToken = TokenHolding(
-            symbol = currentState.currentNetwork.symbol,
-            name = if (currentState.currentNetwork == NetworkMode.LINEA) {
-                "Linea ETH"
-            } else {
-                "Ethereum"
-            },
-            balance = portfolioData.balance,
-            balanceUsd = portfolioData.balance * ethPrice,
-            priceUsd = ethPrice,
-            priceChange24h = 2.34  // TODO: Real price change
-        )
+    // ==================== Asset Tab Selection ====================
 
-        return listOf(nativeToken) + portfolioData.tokens
-    }
-
-    private fun buildTokenList(
-        ethBalance: Double,
-        ethPrice: Double
-    ): List<TokenHolding> {
-        val symbol = currentState.currentNetwork.symbol
-        return listOf(
-            TokenHolding(
-                symbol = symbol,
-                name = if (currentState.currentNetwork == NetworkMode.LINEA) "Linea ETH" else "Ethereum",
-                balance = ethBalance,
-                balanceUsd = ethBalance * ethPrice,
-                priceUsd = ethPrice,
-                priceChange24h = 2.34,
-                iconUrl = null
-            )
-        )
-    }
-
-    private fun getMockPriceChanges(): PriceChanges {
-        // TODO: Fetch real price changes from price oracle
-        return PriceChanges(
-            change15m = 0.12,
-            change1h = 0.45,
-            change24h = 2.34,
-            change7d = -1.89
-        )
-    }
-
-    // ==================== Timeframe Selection ====================
-
-    private fun selectTimeframe(timeframe: Timeframe) {
-        setState { copy(selectedTimeframe = timeframe) }
-    }
-
-    // ==================== Transaction Details ====================
-
-    private fun openTransactionDetails(txHash: String) {
-        val explorerUrl = currentState.currentNetwork.explorerUrl
-        setEffect(PortfolioEffect.OpenExplorerTx(txHash, explorerUrl))
-    }
-
-    // ==================== Load More Transactions ====================
-
-    private fun loadMoreTransactions() {
-        if (currentState.isLoadingTransactions) return
-        // TODO: Implement pagination with repository
+    private fun selectAssetTab(tab: AssetTab) {
+        Timber.d("selectAssetTab() - tab: $tab")
+        setState { copy(selectedAssetTab = tab) }
     }
 
     // ==================== Copy Address ====================
 
     private fun copyWalletAddress() {
         currentState.displayAddress?.let { address ->
+            Timber.d("copyWalletAddress() - copying: $address")
             viewModelScope.launch {
                 setEffect(PortfolioEffect.CopyToClipboard(address))
-                setEffect(PortfolioEffect.ShowToast("Address copied"))
             }
-        }
+        } ?: Timber.w("copyWalletAddress() - no address to copy")
     }
 }

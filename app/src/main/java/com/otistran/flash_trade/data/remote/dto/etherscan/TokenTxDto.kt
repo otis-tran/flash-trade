@@ -32,4 +32,11 @@ data class TokenTxDto(
  * Response for tokentx endpoint.
  * Returns list of token transfers.
  */
-typealias TokenTxResponseDto = EtherscanBaseResponse<List<TokenTxDto>>
+@JsonClass(generateAdapter = true)
+data class TokenTxResponseDto(
+    val status: String,
+    val message: String,
+    val result: List<TokenTxDto>? = null
+) {
+    val isSuccess: Boolean get() = status == "1" && message == "OK"
+}
