@@ -84,6 +84,37 @@ A mobile-first application for rapid meme token trading. Go from app download to
 | Alchemy Prices | Real-time token prices |
 | Privy | Wallet creation, social auth, transaction signing |
 
+## Build Release
+
+### Prerequisites
+- JDK 17
+- Android SDK
+- `google-services.json` in `app/` (for Firebase Crashlytics)
+
+### Build APK
+
+```bash
+./gradlew assembleRelease
+```
+
+### Output Location
+
+```
+app/build/outputs/apk/release/flash-trade.apk
+```
+
+### Install on Device
+
+```bash
+adb install -r app/build/outputs/apk/release/flash-trade.apk
+```
+
+### Quick Build & Install
+
+```bash
+./gradlew assembleRelease && adb install -r app/build/outputs/apk/release/flash-trade.apk
+```
+
 ## License
 
 MIT License - See [LICENSE](LICENSE) for details.

@@ -7,6 +7,8 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 android {
@@ -34,6 +36,9 @@ android {
 
         // Alchemy API Key (for Prices API)
         buildConfigField("String", "ALCHEMY_API_KEY", "\"${properties.getProperty("ALCHEMY_API_KEY") ?: ""}\"")
+
+        // KyberSwap Client ID (for rate limit elevation)
+        buildConfigField("String", "KYBER_CLIENT_ID", "\"${properties.getProperty("KYBER_CLIENT_ID") ?: ""}\"")
 
         // Privy auth config
         buildConfigField("String", "PRIVY_RELYING_PARTY", "\"https://flash-trade-assetlinks.netlify.app\"")
@@ -208,6 +213,11 @@ dependencies {
 
     // Logging
     implementation(libs.timber)
+
+    // Firebase - Crash reporting
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.analytics)
 
     // Camera for scanning (disabled - app only generates QR codes)
     // implementation(libs.androidx.camera.camera2)

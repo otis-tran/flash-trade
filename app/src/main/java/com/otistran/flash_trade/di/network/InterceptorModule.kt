@@ -18,8 +18,6 @@ import okhttp3.logging.HttpLoggingInterceptor
 import javax.inject.Named
 import javax.inject.Singleton
 
-private const val KYBER_CLIENT_ID = "ftc-rin"
-
 @Module
 @InstallIn(SingletonComponent::class)
 object InterceptorModule {
@@ -54,7 +52,7 @@ object InterceptorModule {
 
     @Provides
     @Singleton
-    fun provideClientIdInterceptor(): ClientIdInterceptor = ClientIdInterceptor(KYBER_CLIENT_ID)
+    fun provideClientIdInterceptor(): ClientIdInterceptor = ClientIdInterceptor(BuildConfig.KYBER_CLIENT_ID)
 
     @Provides
     @Singleton
