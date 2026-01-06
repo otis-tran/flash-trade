@@ -38,7 +38,7 @@ androidxWorkRuntimeKtx = "2.11.0"
 androidxDatastorePreferences = "1.2.0"
 
 # Biometric
-androidxBiometric = "1.4.0-alpha04"
+androidxBiometric = "1.4.0-alpha05"
 
 # Splash Screen
 splashscreen = "1.2.0"
@@ -54,7 +54,7 @@ zxingCore = "3.5.4"  # ZXing core
 privyCore = "0.9.0"
 
 # Credentials API for passkey
-credentials = "1.6.0-beta03"
+credentials = "1.6.0-rc01"
 
 # Jetpack Startup
 startupRuntime = "1.2.0"
@@ -68,6 +68,11 @@ timber = "5.0.1"
 
 #
 okhttp = "5.3.2"
+
+# Firebase
+firebaseBom = "34.7.0"
+firebaseCrashlyticsPlugin = "3.0.6"
+googleServicesPlugin = "4.4.4"
 
 [libraries]
 # Core Android
@@ -154,6 +159,11 @@ timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "tim
 #
 okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 
+# Firebase
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
@@ -161,3 +171,5 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlinxSerializationPlugin" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServicesPlugin" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
