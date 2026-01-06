@@ -30,3 +30,21 @@ ALCHEMY_API_KEY=your_alchemy_api_key_here
 # KyberSwap Client ID (for swap rate limit elevation)
 # This is your app identifier for KyberSwap Aggregator API
 KYBER_CLIENT_ID=your_kyber_client_id_here
+
+# ============================================================
+# RELEASE KEYSTORE CONFIGURATION
+# ============================================================
+# For signed release builds, configure the following:
+# KEYSTORE_FILE = path to your .keystore file (relative to app/ folder)
+# KEYSTORE_PASSWORD = your keystore password
+# KEY_ALIAS = your key alias
+# KEY_PASSWORD = your key password
+#
+# To generate a keystore, run:
+# keytool -genkey -v -keystore flash-trade-release.keystore -alias flash-trade -keyalg RSA -keysize 2048 -validity 10000
+#
+# Example:
+KEYSTORE_FILE=../flash-trade-release.keystore
+KEYSTORE_PASSWORD=your_keystore_password_here
+KEY_ALIAS=flash-trade
+KEY_PASSWORD=your_key_password_here

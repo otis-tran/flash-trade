@@ -11,6 +11,10 @@ plugins {
     alias(libs.plugins.firebase.crashlytics)
 }
 
+// Load from local.properties
+val localProperties = Properties()
+localProperties.load(project.rootProject.file("local.properties").inputStream())
+
 android {
     namespace = "com.otistran.flash_trade"
     compileSdk = 36
@@ -25,24 +29,62 @@ android {
         // Vector drawable support
         vectorDrawables.useSupportLibrary = true
 
-        // Load from local.properties
-        val properties = Properties()
-        properties.load(project.rootProject.file("local.properties").inputStream())
-        buildConfigField("String", "PRIVY_APP_ID", "\"${properties.getProperty("PRIVY_APP_ID")}\"")
-        buildConfigField("String", "PRIVY_APP_CLIENT_ID", "\"${properties.getProperty("PRIVY_APP_CLIENT_ID")}\"")
+        // Build config fields from local.properties
+        buildConfigField(
+            "String",
+            "PRIVY_APP_ID",
+            "\"${localProperties.getProperty("PRIVY_APP_ID")}\""
+        )
+        buildConfigField(
+            "String",
+            "PRIVY_APP_CLIENT_ID",
+            "\"${localProperties.getProperty("PRIVY_APP_CLIENT_ID")}\""
+        )
 
         // Etherscan API Key
-        buildConfigField("String", "ETHERSCAN_API_KEY", "\"${properties.getProperty("ETHERSCAN_API_KEY") ?: ""}\"")
+        buildConfigField(
+            "String",
+            "ETHERSCAN_API_KEY",
+            "\"${localProperties.getProperty("ETHERSCAN_API_KEY") ?: ""}\""
+        )
 
         // Alchemy API Key (for Prices API)
-        buildConfigField("String", "ALCHEMY_API_KEY", "\"${properties.getProperty("ALCHEMY_API_KEY") ?: ""}\"")
+        buildConfigField(
+            "String",
+            "ALCHEMY_API_KEY",
+            "\"${localProperties.getProperty("ALCHEMY_API_KEY") ?: ""}\""
+        )
 
         // KyberSwap Client ID (for rate limit elevation)
-        buildConfigField("String", "KYBER_CLIENT_ID", "\"${properties.getProperty("KYBER_CLIENT_ID") ?: ""}\"")
+        buildConfigField(
+            "String",
+            "KYBER_CLIENT_ID",
+            "\"${localProperties.getProperty("KYBER_CLIENT_ID") ?: ""}\""
+        )
 
         // Privy auth config
         buildConfigField("String", "PRIVY_RELYING_PARTY", "\"https://flash-trade-assetlinks.netlify.app\"")
         buildConfigField("String", "PRIVY_OAUTH_SCHEME", "\"com.otistran.flashtrade.privy\"")
+    }
+
+    signingConfigs {
+        // Release keystore configuration from local.properties
+        create("release") {
+            val keystoreFile = localProperties.getProperty("KEYSTORE_FILE")
+            if (keystoreFile != null && file(keystoreFile).exists()) {
+                // Use release keystore from local.properties
+                storeFile = file(keystoreFile)
+                storePassword = localProperties.getProperty("KEYSTORE_PASSWORD")
+                keyAlias = localProperties.getProperty("KEY_ALIAS")
+                keyPassword = localProperties.getProperty("KEY_PASSWORD")
+            } else {
+                // Fallback to debug keystore for testing
+                storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
     }
 
     buildTypes {
@@ -75,6 +117,9 @@ android {
 
             // Optimize for speed
             isDebuggable = false
+
+            // Sign with the release signing config
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
