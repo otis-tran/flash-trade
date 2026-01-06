@@ -1,0 +1,21 @@
+package com.otistran.flash_trade.di
+
+import com.otistran.flash_trade.data.repository.TransactionsRepositoryImpl
+import com.otistran.flash_trade.domain.repository.TransactionsRepository
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
+
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class ActivityModule {
+    @Binds
+    @Singleton
+    abstract fun bindTransactionsRepository(
+        impl: TransactionsRepositoryImpl
+    ): TransactionsRepository
+}
+

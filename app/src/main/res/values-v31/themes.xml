@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Splash screen theme for Android 12+ (API 31+) -->
+    <style name="Theme.Flashtrade.Splash" parent="Theme.Flashtrade">
+        <!-- Splash screen background -->
+        <item name="android:windowSplashScreenBackground">@color/kyber_navy</item>
+
+        <!-- Splash screen icon (uses adaptive icon) -->
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+
+        <!-- Icon background (transparent, icon has its own background) -->
+        <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
+
+        <!-- Animation duration (1000ms) -->
+        <item name="android:windowSplashScreenAnimationDuration">1000</item>
+
+        <!-- Status/nav bar colors -->
+        <item name="android:statusBarColor">@color/kyber_navy</item>
+        <item name="android:navigationBarColor">@color/kyber_navy</item>
+    </style>
+</resources>

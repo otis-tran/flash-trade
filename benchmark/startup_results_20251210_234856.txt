@@ -1,0 +1,32 @@
+Flash Trade - Startup Benchmark Results
+========================================
+Date: Wed 12/10/2025 23:48:56.35
+Device: 2201116TG
+Android: 13
+Package: com.otistran.flash_trade
+App Size: 10 MB
+Iterations: 10
+
+TotalTime Statistics:
+  Min:     1092ms
+  Max:     1506ms
+  Average: 1171ms
+  Median:  1132ms
+
+WaitTime Statistics:
+  Min:     1113ms
+  Max:     1510ms
+  Average: 1186ms
+  Median:  1137ms
+
+Raw data (TotalTime):
+  1506ms
+  1124ms
+  1132ms
+  1159ms
+  1092ms
+  1162ms
+  1148ms
+  1109ms
+  1173ms
+  1114ms

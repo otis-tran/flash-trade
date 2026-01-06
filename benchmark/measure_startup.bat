@@ -33,9 +33,38 @@ REM ========================================
 for /f "delims=" %%i in ('adb shell getprop ro.product.model') do set DEVICE_MODEL=%%i
 for /f "delims=" %%i in ('adb shell getprop ro.build.version.release') do set ANDROID_VERSION=%%i
 
+REM ========================================
+REM  Get App Size
+REM ========================================
+echo [INFO] Getting app size...
+
+REM Check if app is installed
+adb shell pm list packages | find "%APP_PACKAGE%" >nul
+if errorlevel 1 (
+    set APP_SIZE_TEXT=Not installed
+    set APK_SIZE_MB=0
+) else (
+    REM Get APK path
+    for /f "tokens=2 delims=:" %%p in ('adb shell pm path %APP_PACKAGE%') do set APK_PATH=%%p
+    set APK_PATH=!APK_PATH: =!
+
+    REM Get APK size from device
+    for /f "tokens=1" %%s in ('adb shell stat -c %%s !APK_PATH! 2^>nul') do set APK_SIZE_BYTES=%%s
+
+    if defined APK_SIZE_BYTES (
+        set /a APK_SIZE_KB=!APK_SIZE_BYTES!/1024
+        set /a APK_SIZE_MB=!APK_SIZE_KB!/1024
+        set APP_SIZE_TEXT=!APK_SIZE_MB! MB
+    ) else (
+        set APP_SIZE_TEXT=Unknown
+        set APK_SIZE_MB=0
+    )
+)
+
 echo [INFO] Device: %DEVICE_MODEL%
 echo [INFO] Android: %ANDROID_VERSION%
 echo [INFO] Package: %APP_PACKAGE%
+echo [INFO] App Size: %APP_SIZE_TEXT%
 echo [INFO] Iterations: %ITERATIONS%
 echo.
 echo Starting benchmark...
@@ -58,42 +87,42 @@ set SUCCESS_COUNT=0
 
 for /l %%i in (1,1,%ITERATIONS%) do (
     echo [Iteration %%i/%ITERATIONS%]
-    
+
     REM 1. Force stop app
     adb shell am force-stop %APP_PACKAGE% >nul 2>&1
-    
+
     REM 2. Wait for app to fully stop
     timeout /t 2 /nobreak >nul
-    
+
     REM 3. Clear logcat
     adb logcat -c >nul 2>&1
-    
+
     REM 4. Start app and capture output to temp file
     set TEMP_OUTPUT=%TEMP%\startup_output_%RANDOM%.txt
     adb shell am start -W -S -n %APP_PACKAGE%/%APP_ACTIVITY% > !TEMP_OUTPUT! 2>&1
-    
+
     REM 5. Extract metrics
     set TOTAL_TIME=0
     set WAIT_TIME=0
     set LAUNCH_STATE=UNKNOWN
-    
+
     for /f "tokens=2" %%t in ('type !TEMP_OUTPUT! ^| find "TotalTime"') do set TOTAL_TIME=%%t
     for /f "tokens=2" %%w in ('type !TEMP_OUTPUT! ^| find "WaitTime"') do set WAIT_TIME=%%w
     for /f "tokens=2" %%l in ('type !TEMP_OUTPUT! ^| find "LaunchState"') do set LAUNCH_STATE=%%l
-    
+
     del !TEMP_OUTPUT! >nul 2>&1
-    
+
     REM 6. Process results
     if !TOTAL_TIME! gtr 0 (
         REM Save to temp files
         echo !TOTAL_TIME!>>%TEMP_TOTAL%
         echo !WAIT_TIME!>>%TEMP_WAIT%
-        
+
         REM Update sums
         set /a TOTAL_SUM+=!TOTAL_TIME!
         set /a WAIT_SUM+=!WAIT_TIME!
         set /a SUCCESS_COUNT+=1
-        
+
         REM Color code based on performance
         if !TOTAL_TIME! lss 800 (
             echo   [EXCELLENT] TotalTime: !TOTAL_TIME!ms ^| WaitTime: !WAIT_TIME!ms ^| State: !LAUNCH_STATE!
@@ -106,7 +135,7 @@ for /l %%i in (1,1,%ITERATIONS%) do (
         echo   [ERROR] Failed to measure
         type !TEMP_OUTPUT!
     )
-    
+
     echo.
     timeout /t 1 /nobreak >nul
 )
@@ -166,6 +195,8 @@ echo ========================================
 echo             RESULTS
 echo ========================================
 echo.
+echo App Size: %APP_SIZE_TEXT%
+echo.
 echo TotalTime Statistics:
 echo   Min:     %MIN_TOTAL%ms
 echo   Max:     %MAX_TOTAL%ms
@@ -223,6 +254,7 @@ set RESULTS_FILE=startup_results_%TIMESTAMP%.txt
     echo Device: %DEVICE_MODEL%
     echo Android: %ANDROID_VERSION%
     echo Package: %APP_PACKAGE%
+    echo App Size: %APP_SIZE_TEXT%
     echo Iterations: %SUCCESS_COUNT%
     echo.
     echo TotalTime Statistics:
