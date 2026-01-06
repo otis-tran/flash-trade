@@ -18,30 +18,30 @@ interface TokenDao {
 
     // ==================== Paging Sources ====================
 
-    @Query("SELECT * FROM tokens ORDER BY total_tvl DESC")
+    @Query("SELECT * FROM tokens ORDER BY pool_count DESC, total_tvl DESC")
     fun pagingSource(): PagingSource<Int, TokenEntity>
 
     @Query("""
-        SELECT * FROM tokens 
-        WHERE is_verified = 1 
-          AND is_whitelisted = 1 
-          AND is_honeypot = 0 
+        SELECT * FROM tokens
+        WHERE is_verified = 1
+          AND is_whitelisted = 1
+          AND is_honeypot = 0
           AND is_fot = 0
-        ORDER BY total_tvl DESC
+        ORDER BY pool_count DESC, total_tvl DESC
     """)
     fun pagingSourceSafeOnly(): PagingSource<Int, TokenEntity>
 
     @Query("""
-        SELECT * FROM tokens 
+        SELECT * FROM tokens
         WHERE is_verified = 1
-        ORDER BY total_tvl DESC
+        ORDER BY pool_count DESC, total_tvl DESC
     """)
     fun pagingSourceVerifiedOnly(): PagingSource<Int, TokenEntity>
 
     @Query("""
-        SELECT * FROM tokens 
+        SELECT * FROM tokens
         WHERE is_honeypot = 0
-        ORDER BY total_tvl DESC
+        ORDER BY pool_count DESC, total_tvl DESC
     """)
     fun pagingSourceNoHoneypot(): PagingSource<Int, TokenEntity>
 
@@ -49,7 +49,7 @@ interface TokenDao {
         SELECT * FROM tokens
         WHERE (name LIKE '%' || :query || '%' OR symbol LIKE '%' || :query || '%')
           AND (:safeOnly = 0 OR (is_verified = 1 AND is_whitelisted = 1 AND is_honeypot = 0 AND is_fot = 0))
-        ORDER BY total_tvl DESC
+        ORDER BY pool_count DESC, total_tvl DESC
     """)
     fun pagingSourceSearch(query: String, safeOnly: Boolean = false): PagingSource<Int, TokenEntity>
 
@@ -60,8 +60,14 @@ interface TokenDao {
 
     @Query("""
         SELECT * FROM tokens
+        WHERE address IN (:addresses)
+    """)
+    suspend fun getTokensByAddresses(addresses: List<String>): List<TokenEntity>
+
+    @Query("""
+        SELECT * FROM tokens
         WHERE name LIKE '%' || :query || '%' OR symbol LIKE '%' || :query || '%'
-        ORDER BY total_tvl DESC
+        ORDER BY pool_count DESC, total_tvl DESC
         LIMIT :limit
     """)
     suspend fun searchTokens(query: String, limit: Int): List<TokenEntity>

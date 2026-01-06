@@ -16,7 +16,8 @@ import androidx.room.PrimaryKey
         Index(value = ["is_verified"]),
         Index(value = ["is_honeypot"]),
         Index(value = ["symbol"]),
-        Index(value = ["sync_generation"])  // NEW: for cleanup queries
+        Index(value = ["sync_generation"]),  // for cleanup queries
+        Index(value = ["pool_count", "total_tvl"])  // composite index for sort order
     ]
 )
 data class TokenEntity(

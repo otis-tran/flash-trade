@@ -5,7 +5,7 @@ package com.otistran.flash_trade.domain.model
  * Represents user preferences for network, theme, and other configs.
  */
 data class Settings(
-    val networkMode: NetworkMode = NetworkMode.LINEA,
+    val networkMode: NetworkMode = NetworkMode.ETHEREUM,
     val themeMode: ThemeMode = ThemeMode.DARK,
     val isAutoSellEnabled: Boolean = true
 )
@@ -20,7 +20,8 @@ enum class NetworkMode(
     val displayName: String,
     val symbol: String,         // Native token symbol
     val iconColor: Long,        // For UI display
-    val explorerUrl: String
+    val explorerUrl: String,
+    val rpcUrl: String         // Public RPC endpoint for web3j calls
 ) {
     ETHEREUM(
         chainId = 1L,
@@ -28,19 +29,12 @@ enum class NetworkMode(
         displayName = "Ethereum",
         symbol = "ETH",
         iconColor = 0xFF627EEA,
-        explorerUrl = "https://etherscan.io"
-    ),
-    LINEA(
-        chainId = 59144L,
-        chainName = "linea",
-        displayName = "Linea",
-        symbol = "ETH",
-        iconColor = 0xFF61DFFF,
-        explorerUrl = "https://lineascan.build"
+        explorerUrl = "https://etherscan.io",
+        rpcUrl = "https://eth.llamarpc.com"
     );
 
     companion object {
-        val DEFAULT = LINEA
+        val DEFAULT = ETHEREUM
 
         fun fromChainId(chainId: Long): NetworkMode =
             entries.find { it.chainId == chainId } ?: DEFAULT
@@ -52,6 +46,12 @@ enum class NetworkMode(
             entries.find { it.name == name } ?: DEFAULT
     }
 }
+
+/**
+ * Maps NetworkMode to Alchemy network identifier.
+ * Used by Alchemy Data API for token balances.
+ */
+fun NetworkMode.toAlchemyNetwork(): String = "eth-mainnet"
 
 /**
  * Theme modes for app UI.

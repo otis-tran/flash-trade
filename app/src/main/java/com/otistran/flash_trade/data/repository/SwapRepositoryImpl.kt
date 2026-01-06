@@ -1,181 +1,226 @@
 package com.otistran.flash_trade.data.repository
 
-import android.util.Log
-import com.otistran.flash_trade.data.mapper.SwapMapper
+import com.otistran.flash_trade.data.mapper.toRequest
+import com.otistran.flash_trade.data.mapper.toRouteSummary
 import com.otistran.flash_trade.data.remote.api.KyberSwapApiService
-import com.otistran.flash_trade.data.remote.dto.kyber.BuildRouteRequestDto
 import com.otistran.flash_trade.data.service.PrivyAuthService
-import com.otistran.flash_trade.domain.manager.QuoteCacheManager
-import com.otistran.flash_trade.domain.model.EncodedSwap
-import com.otistran.flash_trade.domain.model.Quote
-import com.otistran.flash_trade.domain.model.SwapResult
-import com.otistran.flash_trade.domain.model.SwapStatus
+import com.otistran.flash_trade.domain.model.BuildRouteData
+import com.otistran.flash_trade.domain.model.EncodedRouteResponse
+import com.otistran.flash_trade.domain.model.RouteSummaryResponse
+import com.otistran.flash_trade.domain.model.SwapQuote
 import com.otistran.flash_trade.domain.repository.SwapRepository
 import com.otistran.flash_trade.util.Result
+import timber.log.Timber
+import java.math.BigDecimal
 import java.math.BigInteger
+import java.math.RoundingMode
 import javax.inject.Inject
 
-private const val TAG = "SwapRepositoryImpl"
+/** Gas multiplier to add buffer for transaction execution (1.5 = 50% buffer) */
+private const val GAS_MULTIPLIER = 1.5
 
 class SwapRepositoryImpl @Inject constructor(
     private val kyberSwapApi: KyberSwapApiService,
-    private val privyAuthService: PrivyAuthService,
-    private val swapMapper: SwapMapper,
-    private val quoteCacheManager: QuoteCacheManager
+    private val privyAuthService: PrivyAuthService
 ) : SwapRepository {
-
-    // Store checksum for build request (needed by KyberSwap API)
-    private var lastChecksum: String = ""
-
-    override suspend fun getQuote(
+    override suspend fun getRoutes(
         chain: String,
         tokenIn: String,
         tokenOut: String,
-        amountIn: BigInteger,
-        slippageTolerance: Int,
-        userAddress: String?
-    ): Result<Quote> {
+        amountIn: BigInteger
+    ): Result<RouteSummaryResponse> {
         return try {
-            // Check cache first
-            val cached = quoteCacheManager.get(tokenIn, tokenOut, amountIn.toString())
-            if (cached != null) {
-                Log.d(TAG, "Quote cache hit")
-                return Result.Success(cached)
-            }
-
-            // Fetch from API
             val response = kyberSwapApi.getSwapRoute(
                 chain = chain,
                 tokenIn = tokenIn,
                 tokenOut = tokenOut,
-                amountIn = amountIn.toString(),
-                slippageTolerance = slippageTolerance,
-                origin = userAddress
+                amountIn = amountIn.toString()
             )
 
             if (response.code != 0) {
-                return Result.Error("Failed to get quote: ${response.message}")
+                return Result.Error("Failed to get route: ${response.message}")
             }
 
             if (response.data == null) {
                 return Result.Error("No route found for this swap")
             }
 
-            // Store checksum for later build request
-            lastChecksum = response.data.routeSummary.checksum
+            if (response.data.routeSummary == null) {
+                return Result.Error("Route summary is null")
+            }
 
-            val quote = swapMapper.toQuote(response)
-            quoteCacheManager.put(quote)
-
-            Result.Success(quote)
+            val routeSummary = response.data.toRouteSummary()
+            Result.Success(routeSummary)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting quote", e)
-            Result.Error(e.message ?: "Unknown error getting quote")
+            Timber.e("Error getting route", e)
+            Result.Error(e.message ?: "Unknown error getting route")
         }
     }
 
-    override suspend fun buildSwap(
+    override suspend fun getQuote(
         chain: String,
-        quote: Quote,
-        senderAddress: String,
-        recipientAddress: String?
-    ): Result<EncodedSwap> {
+        tokenIn: String,
+        tokenOut: String,
+        amountIn: BigInteger,
+        tokenInDecimals: Int,
+        tokenOutDecimals: Int
+    ): Result<SwapQuote> {
         return try {
-            val request = BuildRouteRequestDto(
-                routeSummary = swapMapper.toRouteSummaryDto(quote, lastChecksum),
+            val response = kyberSwapApi.getSwapRoute(
+                chain = chain,
+                tokenIn = tokenIn,
+                tokenOut = tokenOut,
+                amountIn = amountIn.toString()
+            )
+
+            if (response.code != 0 || response.data?.routeSummary == null) {
+                return Result.Error(response.message ?: "No route found")
+            }
+
+            val summary = response.data.routeSummary!!
+
+            // Parse amounts
+            val amtIn = BigDecimal(summary.amountIn ?: "0")
+                .divide(BigDecimal.TEN.pow(tokenInDecimals), 18, RoundingMode.HALF_UP)
+            val amtOut = BigDecimal(summary.amountOut ?: "0")
+                .divide(BigDecimal.TEN.pow(tokenOutDecimals), 18, RoundingMode.HALF_UP)
+            val amtInUsd = summary.amountInUsd?.toBigDecimalOrNull() ?: BigDecimal.ZERO
+            val amtOutUsd = summary.amountOutUsd?.toBigDecimalOrNull() ?: BigDecimal.ZERO
+
+            // Calculate exchange rate
+            val rate = if (amtIn > BigDecimal.ZERO) {
+                amtOut.divide(amtIn, 18, RoundingMode.HALF_UP)
+            } else BigDecimal.ZERO
+
+            // Parse network fee
+            val gasUsd = summary.gasUsd?.toBigDecimalOrNull() ?: BigDecimal.ZERO
+            val gasNative = BigDecimal(summary.gas ?: "0")
+                .divide(BigDecimal.TEN.pow(18), 18, RoundingMode.HALF_UP) // Gas in ETH
+
+            // Calculate price impact
+            // Impact = ((amtInUsd - amtOutUsd) / amtInUsd) * 100
+            val priceImpact = if (amtInUsd > BigDecimal.ZERO) {
+                amtInUsd.subtract(amtOutUsd)
+                    .divide(amtInUsd, 4, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal("100"))
+                    .negate() // Negative means user receives less
+            } else BigDecimal.ZERO
+
+            Timber.d("Quote: rate=$rate, gasUsd=$gasUsd, priceImpact=$priceImpact%")
+
+            Result.Success(
+                SwapQuote(
+                    amountIn = amtIn,
+                    amountInUsd = amtInUsd,
+                    amountOut = amtOut,
+                    amountOutUsd = amtOutUsd,
+                    exchangeRate = rate,
+                    networkFeeUsd = gasUsd,
+                    networkFeeNative = gasNative,
+                    priceImpactPercent = priceImpact
+                )
+            )
+        } catch (e: Exception) {
+            Timber.e("Error getting quote", e)
+            Result.Error(e.message ?: "Unknown error")
+        }
+    }
+
+    override suspend fun buildEncodedRoute(
+        chain: String,
+        routeSummary: RouteSummaryResponse,
+        senderAddress: String,
+        recipientAddress: String?,
+        permit: String?,
+        deadline: Long?
+    ): Result<EncodedRouteResponse> {
+        return try {
+            val request = routeSummary.toRequest(
                 sender = senderAddress,
-                recipient = recipientAddress ?: senderAddress,
-                slippageTolerance = 50, // 0.5% default
-                enableGasEstimation = true,
-                origin = senderAddress
+                receipt = recipientAddress ?: senderAddress,
+                permit = permit,
+                deadline = deadline
             )
 
             val response = kyberSwapApi.buildSwapRoute(chain = chain, request = request)
 
             if (response.code != 0) {
-                return Result.Error("Failed to build swap: ${response.message}")
+                return Result.Error("Failed to build encoded route: ${response.message}")
             }
 
             if (response.data == null) {
-                return Result.Error("No swap data returned")
+                return Result.Error("No route data returned")
             }
 
-            val encodedSwap = swapMapper.toEncodedSwap(response)
-            Result.Success(encodedSwap)
+            val encodedSwapRoute = EncodedRouteResponse(
+                code = response.code,
+                message = response.message,
+                data = BuildRouteData(
+                    amountIn = response.data.amountIn,
+                    amountInUsd = response.data.amountInUsd,
+                    amountOut = response.data.amountOut,
+                    amountOutUsd = response.data.amountOutUsd,
+                    gas = response.data.gas,
+                    gasUsd = response.data.gasUsd,
+                    additionalCostUsd = response.data.additionalCostUsd,
+                    additionalCostMessage = response.data.additionalCostMessage,
+                    data = response.data.data,
+                    routerAddress = response.data.routerAddress,
+                    transactionValue = response.data.transactionValue,
+                ),
+                requestId = response.requestId,
+            )
+            Result.Success(encodedSwapRoute)
         } catch (e: Exception) {
-            Log.e(TAG, "Error building swap", e)
-            Result.Error(e.message ?: "Unknown error building swap")
+            Timber.e("Error building encoded route", e)
+            Result.Error(e.message ?: "Unknown error building encoded route")
         }
     }
 
-    override suspend fun executeSwap(
-        encodedSwap: EncodedSwap
-    ): Result<SwapResult> {
+    override suspend fun signTransaction(
+        wallet: io.privy.wallet.ethereum.EmbeddedEthereumWallet,
+        encodedRoute: EncodedRouteResponse,
+        chainId: String,
+        senderAddress: String
+    ): Result<String> {
         return try {
-            // Get authenticated user
-            val user = privyAuthService.getUser()
-                ?: return Result.Error("User not authenticated")
+            val routeData = encodedRoute.data
+                ?: return Result.Error("No route data available")
 
-            // Ensure wallet exists
-            val walletResult = privyAuthService.ensureEthereumWallet(user)
-            if (walletResult.isFailure) {
-                return Result.Error(
-                    "Failed to get wallet: ${walletResult.exceptionOrNull()?.message}"
-                )
-            }
+            val to = routeData.routerAddress
+                ?: return Result.Error("Router address is null")
 
-            val wallet = walletResult.getOrNull()
-                ?: return Result.Error("Wallet is null")
+            val value = routeData.transactionValue
+            val data = routeData.data
+                ?: return Result.Error("Encoded data is null")
+            val gas = routeData.gas
+                ?: return Result.Error("Gas is null")
 
-            // Send transaction via Privy wallet provider
-            // Note: Actual implementation depends on Privy SDK version
-            val txHash = sendTransaction(
+            // Apply gas multiplier to add buffer for transaction execution
+            val gasLimit = BigDecimal(gas)
+                .multiply(BigDecimal(GAS_MULTIPLIER))
+                .toBigInteger()
+
+            Timber.d("Gas limit: original=$gas, adjusted=$gasLimit (multiplier=$GAS_MULTIPLIER)")
+
+            val signResult = privyAuthService.signTransaction(
                 wallet = wallet,
-                to = encodedSwap.routerAddress,
-                data = encodedSwap.calldata,
-                value = encodedSwap.value,
-                gas = encodedSwap.gas
+                to = to,
+                value = value,
+                chainId = chainId,
+                data = data,
+                gasLimit = "0x${gasLimit.toString(16)}",
+                from = senderAddress
             )
 
-            if (txHash != null) {
-                Log.d(TAG, "Swap submitted: $txHash")
-                // Invalidate cache after successful swap
-                quoteCacheManager.clear()
-                Result.Success(
-                    SwapResult(
-                        txHash = txHash,
-                        status = SwapStatus.PENDING
-                    )
-                )
-            } else {
-                Result.Error("Transaction rejected or failed")
-            }
+            // Convert kotlin.Result to our custom Result type
+            signResult.fold(
+                onSuccess = { Result.Success(it) },
+                onFailure = { Result.Error(it.message ?: "Failed to sign transaction") }
+            )
         } catch (e: Exception) {
-            Log.e(TAG, "Exception during swap execution", e)
-            Result.Error(e.message ?: "Unknown error executing swap")
+            Timber.e("Error signing transaction", e)
+            Result.Error(e.message ?: "Unknown error signing transaction")
         }
-    }
-
-    /**
-     * Send transaction via Privy embedded wallet.
-     * Uses Privy SDK's EthereumRpcRequest for eth_sendTransaction.
-     * @return Transaction hash or null if failed
-     */
-    @Suppress("UNUSED_PARAMETER")
-    private suspend fun sendTransaction(
-        wallet: io.privy.wallet.ethereum.EmbeddedEthereumWallet,
-        to: String,
-        data: String,
-        value: BigInteger,
-        gas: BigInteger
-    ): String? {
-        // TODO: Implement actual transaction sending when Privy SDK API is confirmed
-        // The implementation will depend on the exact Privy SDK version.
-        // Expected flow:
-        // 1. Build transaction params (from, to, data, value, gas)
-        // 2. Call wallet.provider.request() with eth_sendTransaction
-        // 3. Return transaction hash from result
-        Log.w(TAG, "Transaction sending not yet implemented")
-        return null
     }
 }

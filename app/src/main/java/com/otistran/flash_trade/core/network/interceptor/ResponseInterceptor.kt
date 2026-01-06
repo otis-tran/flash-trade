@@ -1,8 +1,8 @@
 package com.otistran.flash_trade.core.network.interceptor
 
-import android.util.Log
 import okhttp3.Interceptor
 import okhttp3.Response
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -17,7 +17,6 @@ import javax.inject.Singleton
 class ResponseInterceptor @Inject constructor() : Interceptor {
 
     companion object {
-        private const val TAG = "API_RESPONSE"
     }
 
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -30,7 +29,7 @@ class ResponseInterceptor @Inject constructor() : Interceptor {
         val duration = endTime - startTime
 
         // Log response info
-        Log.d(TAG, buildString {
+        Timber.d(buildString {
             append("[${response.code}] ")
             append("${request.method} ${request.url.encodedPath} ")
             append("(${duration}ms)")
@@ -40,13 +39,13 @@ class ResponseInterceptor @Inject constructor() : Interceptor {
         when (response.code) {
             401 -> {
                 // Token expired - could trigger token refresh or logout
-                Log.w(TAG, "Unauthorized response - token may be expired")
+                Timber.w("Unauthorized response - token may be expired")
             }
             403 -> {
-                Log.w(TAG, "Forbidden response - access denied")
+                Timber.w("Forbidden response - access denied")
             }
             in 500..599 -> {
-                Log.e(TAG, "Server error: ${response.code}")
+                Timber.e("Server error: ${response.code}")
             }
         }
 

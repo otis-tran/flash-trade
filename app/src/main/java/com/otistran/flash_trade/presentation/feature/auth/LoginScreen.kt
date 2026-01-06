@@ -48,7 +48,7 @@ fun LoginScreen(
                 LoginEffect.NavigateToTrading -> onNavigateToTrading()
                 LoginEffect.NavigateBack -> onNavigateBack()
                 is LoginEffect.ShowToast -> {
-                    // TODO: Show toast via SnackbarHost if needed
+                    // Toast display handled elsewhere if needed
                 }
             }
         }

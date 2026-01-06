@@ -44,6 +44,14 @@ class SettingsRepositoryImpl @Inject constructor(
         userPreferences.setAutoSellEnabled(enabled)
     }
 
+    override suspend fun getDefaultSlippage(): Double {
+        return userPreferences.getDefaultSlippage()
+    }
+
+    override suspend fun setDefaultSlippage(slippage: Double) {
+        userPreferences.setDefaultSlippage(slippage)
+    }
+
     override suspend fun clearSettings() {
         userPreferences.clear()
     }

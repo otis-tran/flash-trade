@@ -2,8 +2,8 @@ package com.otistran.flash_trade.data.mapper
 
 import com.otistran.flash_trade.data.remote.dto.etherscan.TokenTxDto
 import com.otistran.flash_trade.data.remote.dto.etherscan.TxDto
-import com.otistran.flash_trade.presentation.feature.portfolio.Transaction
-import com.otistran.flash_trade.presentation.feature.portfolio.TransactionType
+import com.otistran.flash_trade.presentation.feature.activity.Transaction
+import com.otistran.flash_trade.presentation.feature.activity.TransactionType
 import java.math.BigDecimal
 
 // ==================== DTO -> Domain Extensions ====================

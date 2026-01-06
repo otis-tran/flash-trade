@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -42,11 +43,12 @@ class UserPreferences @Inject constructor(
         val DISPLAY_NAME = stringPreferencesKey("display_name")
         val LOGIN_TIMESTAMP = longPreferencesKey("login_timestamp")
 
-        // Portfolio balance cache (per network)
+        // Portfolio balance cache (Ethereum only)
         val ETH_BALANCE_ETHEREUM = stringPreferencesKey("eth_balance_ethereum")
-        val ETH_BALANCE_LINEA = stringPreferencesKey("eth_balance_linea")
         val BALANCE_CACHE_TS_ETHEREUM = longPreferencesKey("balance_cache_ts_ethereum")
-        val BALANCE_CACHE_TS_LINEA = longPreferencesKey("balance_cache_ts_linea")
+
+        // Swap settings
+        val DEFAULT_SLIPPAGE = doublePreferencesKey("default_slippage")
     }
 
     val isOnboarded: Flow<Boolean> = context.dataStore.data.map { it[Keys.IS_ONBOARDED] ?: false }
@@ -58,7 +60,7 @@ class UserPreferences @Inject constructor(
     val userId: Flow<String?> = context.dataStore.data.map { it[Keys.USER_ID] }
     val walletAddress: Flow<String?> = context.dataStore.data.map { it[Keys.WALLET_ADDRESS] }
     val themeMode: Flow<String> = context.dataStore.data.map { it[Keys.THEME_MODE] ?: "DARK" }
-    val networkMode: Flow<String> = context.dataStore.data.map { it[Keys.NETWORK_MODE] ?: "LINEA" }
+    val networkMode: Flow<String> = context.dataStore.data.map { it[Keys.NETWORK_MODE] ?: "ETHEREUM" }
 
     // Auth
     val isLoggedIn: Flow<Boolean> = context.dataStore.data.map { it[Keys.IS_LOGGED_IN] ?: false }
@@ -137,6 +139,14 @@ class UserPreferences @Inject constructor(
         context.dataStore.edit { it[Keys.NETWORK_MODE] = mode }
     }
 
+    suspend fun getDefaultSlippage(): Double {
+        return context.dataStore.data.first()[Keys.DEFAULT_SLIPPAGE] ?: 0.5
+    }
+
+    suspend fun setDefaultSlippage(slippage: Double) {
+        context.dataStore.edit { it[Keys.DEFAULT_SLIPPAGE] = slippage }
+    }
+
     suspend fun clear() {
         context.dataStore.edit { it.clear() }
     }
@@ -172,19 +182,17 @@ class UserPreferences @Inject constructor(
     }
 
     private fun getBalanceKey(chainId: Long): Preferences.Key<String> {
-        return when (chainId) {
-            1L -> Keys.ETH_BALANCE_ETHEREUM
-            59144L -> Keys.ETH_BALANCE_LINEA
-            else -> throw IllegalArgumentException("Unknown chainId: $chainId")
+        if (chainId != 1L) {
+            throw IllegalArgumentException("Only Ethereum (chainId=1) is supported")
         }
+        return Keys.ETH_BALANCE_ETHEREUM
     }
 
     private fun getBalanceTimestampKey(chainId: Long): Preferences.Key<Long> {
-        return when (chainId) {
-            1L -> Keys.BALANCE_CACHE_TS_ETHEREUM
-            59144L -> Keys.BALANCE_CACHE_TS_LINEA
-            else -> throw IllegalArgumentException("Unknown chainId: $chainId")
+        if (chainId != 1L) {
+            throw IllegalArgumentException("Only Ethereum (chainId=1) is supported")
         }
+        return Keys.BALANCE_CACHE_TS_ETHEREUM
     }
 }
 

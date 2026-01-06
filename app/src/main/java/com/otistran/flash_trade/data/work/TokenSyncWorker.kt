@@ -1,7 +1,6 @@
 package com.otistran.flash_trade.data.work
 
 import android.content.Context
-import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -10,6 +9,7 @@ import com.otistran.flash_trade.data.local.database.dao.TokenDao
 import com.otistran.flash_trade.data.remote.api.KyberApiService
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import timber.log.Timber
 
 /**
  * WorkManager worker for syncing token data in batches.
@@ -29,8 +29,6 @@ class TokenSyncWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
 
     companion object {
-        private const val TAG = "TokenSyncWorker"
-
         const val START_PAGE_KEY = "start_page"
         const val END_PAGE_KEY = "end_page"
         const val GENERATION_KEY = "generation"
@@ -52,18 +50,18 @@ class TokenSyncWorker @AssistedInject constructor(
         val endPage = inputData.getInt(END_PAGE_KEY, startPage + 100)
         val generation = inputData.getInt(GENERATION_KEY, 1)
 
-        Log.d(TAG, "Starting batch sync: pages $startPage-$endPage, generation $generation")
+        Timber.d("Starting batch sync: pages $startPage-$endPage, generation $generation")
 
         return try {
             syncBatch(startPage, endPage, generation)
 
             // Save checkpoint after successful batch
             syncCheckpoint.saveProgress(endPage)
-            Log.d(TAG, "Batch complete: saved checkpoint at page $endPage")
+            Timber.d("Batch complete: saved checkpoint at page $endPage")
 
             Result.success()
         } catch (e: Exception) {
-            Log.e(TAG, "Batch failed: pages $startPage-$endPage", e)
+            Timber.e("Batch failed: pages $startPage-$endPage", e)
 
             // Retry on transient failures
             if (runAttemptCount < MAX_RETRIES) {
@@ -85,12 +83,12 @@ class TokenSyncWorker @AssistedInject constructor(
             val response = fetchPageWithRetry(page)
 
             if (response == null) {
-                Log.w(TAG, "Skipping page $page after max retries")
+                Timber.w("Skipping page $page after max retries")
                 continue
             }
 
             if (response.data.isEmpty()) {
-                Log.d(TAG, "Empty response at page $page - end of data")
+                Timber.d("Empty response at page $page - end of data")
                 break
             }
 
@@ -105,7 +103,7 @@ class TokenSyncWorker @AssistedInject constructor(
                 }
 
             allTokens.addAll(entities)
-            Log.v(TAG, "Page $page: ${entities.size} tokens")
+            Timber.v("Page $page: ${entities.size} tokens")
 
             // Rate limiting - delay between requests
             if (page < endPage) {
@@ -116,9 +114,9 @@ class TokenSyncWorker @AssistedInject constructor(
         // Single bulk insert for the entire batch
         if (allTokens.isNotEmpty()) {
             tokenDao.upsertTokens(allTokens)
-            Log.i(TAG, "Batch complete: ${allTokens.size} tokens inserted")
+            Timber.i("Batch complete: ${allTokens.size} tokens inserted")
         } else {
-            Log.w(TAG, "Batch complete: no tokens to insert")
+            Timber.w("Batch complete: no tokens to insert")
         }
     }
 
@@ -139,7 +137,7 @@ class TokenSyncWorker @AssistedInject constructor(
                 )
             } catch (e: Exception) {
                 lastException = e
-                Log.w(TAG, "Fetch page $page failed (attempt ${attempt + 1}/$MAX_RETRIES): ${e.message}")
+                Timber.w("Fetch page $page failed (attempt ${attempt + 1}/$MAX_RETRIES): ${e.message}")
 
                 if (attempt < MAX_RETRIES - 1) {
                     kotlinx.coroutines.delay(RETRY_DELAY_MS * (attempt + 1))
@@ -147,7 +145,7 @@ class TokenSyncWorker @AssistedInject constructor(
             }
         }
 
-        Log.e(TAG, "Failed to fetch page $page after $MAX_RETRIES retries", lastException)
+        Timber.e("Failed to fetch page $page after $MAX_RETRIES retries", lastException)
         return null
     }
 

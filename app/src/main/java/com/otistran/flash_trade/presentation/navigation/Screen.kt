@@ -5,6 +5,10 @@ import kotlinx.serialization.Serializable
 /**
  * Type-safe navigation routes for Flash Trade app.
  * Uses Kotlin Serialization for Navigation Compose 2.8+ type safety.
+ *
+ * Navigation structure:
+ * - 4-tab bottom nav: Home, Swap, Activity, Settings
+ * - Each tab has its own graph with nested screens
  */
 
 // =============================================================================
@@ -20,10 +24,13 @@ object Login
 // Top-level Navigation Graphs (bottom nav tabs)
 // =============================================================================
 @Serializable
-object TradingGraph
+object HomeGraph
 
 @Serializable
-object PortfolioGraph
+object SwapGraph
+
+@Serializable
+object ActivityGraph
 
 @Serializable
 object SettingsGraph
@@ -32,10 +39,13 @@ object SettingsGraph
 // Main Screens (nested in graphs)
 // =============================================================================
 @Serializable
-object TradingScreen
+object HomeScreen  // Previously PortfolioScreen - now Home tab
 
 @Serializable
-object PortfolioScreen
+object SwapMainScreen  // Main swap screen in Swap tab
+
+@Serializable
+object ActivityScreen  // Transaction history in Activity tab
 
 @Serializable
 object SettingsScreen
@@ -44,7 +54,7 @@ object SettingsScreen
 // Detail Screens (nested, no bottom nav)
 // =============================================================================
 @Serializable
-data class TradeDetails(val tradeId: String)
+data class SwapScreen(val tokenAddress: String)  // Swap with specific token
 
 @Serializable
-data class SwapScreen(val tokenAddress: String)
+data class TradeDetails(val tradeId: String)

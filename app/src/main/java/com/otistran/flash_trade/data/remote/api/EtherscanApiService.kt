@@ -1,6 +1,7 @@
 package com.otistran.flash_trade.data.remote.api
 
 import com.otistran.flash_trade.data.remote.dto.etherscan.BalanceResponseDto
+import com.otistran.flash_trade.data.remote.dto.etherscan.TokenBalanceResponseDto
 import com.otistran.flash_trade.data.remote.dto.etherscan.TokenTxResponseDto
 import com.otistran.flash_trade.data.remote.dto.etherscan.TxListResponseDto
 import retrofit2.http.GET
@@ -28,6 +29,21 @@ interface EtherscanApiService {
         @Query("tag") tag: String = "latest",
         @Query("apikey") apiKey: String
     ): BalanceResponseDto
+
+    /**
+     * Get ERC-20 token balance for address and contract.
+     * Returns balance in token units (not Wei).
+     */
+    @GET("v2/api")
+    suspend fun getTokenBalance(
+        @Query("chainid") chainId: Long,
+        @Query("module") module: String = "account",
+        @Query("action") action: String = "tokenbalance",
+        @Query("contractaddress") contractAddress: String,
+        @Query("address") address: String,
+        @Query("tag") tag: String = "latest",
+        @Query("apikey") apiKey: String
+    ): TokenBalanceResponseDto
 
     /**
      * Get ERC-20 token transfer events for address.

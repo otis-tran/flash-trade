@@ -1,8 +1,11 @@
 package com.otistran.flash_trade.domain.model
 
+import androidx.compose.runtime.Stable
+
 /**
  * Domain model for a tradeable token.
  */
+@Stable
 data class Token(
     val address: String,
     val name: String?,

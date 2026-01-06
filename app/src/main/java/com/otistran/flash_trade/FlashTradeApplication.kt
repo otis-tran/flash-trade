@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -20,9 +21,14 @@ class FlashTradeApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // Initialize Timber for logging
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        }
+
         // Start background sync on app launch
         applicationScope.launch {
-            //tokenSyncManager.checkAndStartSync()
+            tokenSyncManager.checkAndStartSync()
         }
     }
 }

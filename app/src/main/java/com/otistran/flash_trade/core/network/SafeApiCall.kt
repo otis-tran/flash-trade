@@ -1,6 +1,5 @@
 package com.otistran.flash_trade.core.network
 
-import android.util.Log
 import com.otistran.flash_trade.core.network.interceptor.NoConnectivityException
 import com.squareup.moshi.JsonDataException
 import com.squareup.moshi.JsonEncodingException
@@ -9,12 +8,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import retrofit2.Response
+import timber.log.Timber
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
-
-private const val TAG = "SafeApiCall"
 
 /**
  * Safe wrapper for API calls with comprehensive error handling.
@@ -36,7 +34,7 @@ suspend fun <T> safeApiCall(
         try {
             NetworkResult.Success(apiCall())
         } catch (e: Exception) {
-            Log.e(TAG, "API call failed: ${e.message}", e)
+            Timber.e("API call failed: ${e.message}", e)
             NetworkResult.Error(e.toAppException())
         }
     }
@@ -61,7 +59,7 @@ suspend fun <T> safeApiCallWithResponse(
             val response = apiCall()
             handleResponse(response)
         } catch (e: Exception) {
-            Log.e(TAG, "API call failed: ${e.message}", e)
+            Timber.e("API call failed: ${e.message}", e)
             NetworkResult.Error(e.toAppException())
         }
     }
@@ -170,7 +168,7 @@ private fun parseErrorMessage(errorBody: String?): String? {
             pattern.toRegex().find(errorBody)?.groupValues?.getOrNull(1)
         }
     } catch (e: Exception) {
-        Log.w(TAG, "Failed to parse error body: $errorBody", e)
+        Timber.w("Failed to parse error body: $errorBody", e)
         null
     }
 }
@@ -238,7 +236,7 @@ suspend fun <T> safeApiCallWithRetry(
             }
         }
 
-        Log.d(TAG, "Retry attempt ${attempt + 1}/$times after ${currentDelay}ms")
+        Timber.d("Retry attempt ${attempt + 1}/$times after ${currentDelay}ms")
         kotlinx.coroutines.delay(currentDelay)
         currentDelay = (currentDelay * factor).toLong()
     }

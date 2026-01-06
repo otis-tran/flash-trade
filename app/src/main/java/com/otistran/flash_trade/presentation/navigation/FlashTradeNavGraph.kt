@@ -8,15 +8,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.otistran.flash_trade.presentation.feature.activity.ActivityScreen
 import com.otistran.flash_trade.presentation.feature.auth.LoginScreen
 import com.otistran.flash_trade.presentation.feature.portfolio.PortfolioScreen
-import com.otistran.flash_trade.presentation.feature.settings.SettingsScreen
 import com.otistran.flash_trade.presentation.feature.swap.SwapScreen
-import com.otistran.flash_trade.presentation.feature.trading.TradingScreen
-import com.otistran.flash_trade.presentation.navigation.SwapScreen as SwapScreenRoute
+import com.otistran.flash_trade.presentation.feature.settings.SettingsScreen
+import com.otistran.flash_trade.presentation.navigation.ActivityScreen as ActivityScreenRoute
 
 /**
  * Main navigation graph for Flash Trade app.
+ * 4-tab structure: Home, Swap, Activity, Settings
  * Start destination is determined by MainActivity during splash.
  */
 @Composable
@@ -32,7 +33,12 @@ fun FlashTradeNavGraph(
     ) {
         // ==================== Auth Flow ====================
         composable<Welcome> {
-            // TODO: WelcomeScreen()
+            // Welcome screen not implemented - redirect to Login
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                navController.navigate(Login) {
+                    popUpTo<Welcome> { inclusive = true }
+                }
+            }
         }
 
         composable<Login> {
@@ -42,36 +48,30 @@ fun FlashTradeNavGraph(
             )
         }
 
-        // ==================== Trading Tab ====================
-        navigation<TradingGraph>(startDestination = TradingScreen) {
-            composable<TradingScreen> {
-                TradingScreen(
-                    onNavigateToTradeDetails = { tokenAddress ->
-                        navController.navigate(SwapScreenRoute(tokenAddress))
-                    }
+        // ==================== Home Tab (Portfolio) ====================
+        navigation<HomeGraph>(startDestination = HomeScreen) {
+            composable<HomeScreen> {
+                PortfolioScreen(
+                    onNavigateToSwap = { navController.navigateToSwap() }
                 )
-            }
-
-            composable<SwapScreenRoute> { backStackEntry ->
-                val args = backStackEntry.toRoute<SwapScreenRoute>()
-                SwapScreen(
-                    tokenAddress = args.tokenAddress,
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToTxDetails = { /* TODO: Navigate to tx details */ },
-                    onOpenTokenSelector = { /* TODO: Open token selector */ }
-                )
-            }
-
-            composable<TradeDetails> { backStackEntry ->
-                val args = backStackEntry.toRoute<TradeDetails>()
-                // TODO: TradeDetailsScreen(tradeId = args.tradeId)
             }
         }
 
-        // ==================== Portfolio Tab ====================
-        navigation<PortfolioGraph>(startDestination = PortfolioScreen) {
-            composable<PortfolioScreen> {
-                PortfolioScreen()
+        // ==================== Swap Tab ====================
+        navigation<SwapGraph>(startDestination = SwapMainScreen) {
+            composable<SwapMainScreen> {
+                // Swap screen with built-in token selector
+                SwapScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToHome = { navController.navigateToHomeTab() }
+                )
+            }
+        }
+
+        // ==================== Activity Tab ====================
+        navigation<ActivityGraph>(startDestination = ActivityScreenRoute) {
+            composable<ActivityScreenRoute> {
+                ActivityScreen()
             }
         }
 
@@ -89,14 +89,34 @@ fun FlashTradeNavGraph(
 
 // ==================== Navigation Extensions ====================
 
+/**
+ * Navigate to Home after login (clears login from backstack)
+ */
 private fun NavHostController.navigateToHome() {
-    navigate(TradingGraph) {
+    navigate(HomeGraph) {
         popUpTo<Login> { inclusive = true }
+    }
+}
+
+/**
+ * Navigate to Home tab (for in-app navigation)
+ */
+private fun NavHostController.navigateToHomeTab() {
+    navigate(HomeGraph) {
+        launchSingleTop = true
+        restoreState = true
     }
 }
 
 private fun NavHostController.navigateToLogin() {
     navigate(Login) {
         popUpTo(0) { inclusive = true }
+    }
+}
+
+private fun NavHostController.navigateToSwap() {
+    navigate(SwapGraph) {
+        launchSingleTop = true
+        restoreState = true
     }
 }

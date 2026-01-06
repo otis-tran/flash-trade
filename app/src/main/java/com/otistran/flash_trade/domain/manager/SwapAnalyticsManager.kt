@@ -1,10 +1,8 @@
 package com.otistran.flash_trade.domain.manager
 
-import android.util.Log
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
-
-private const val TAG = "SwapAnalytics"
 
 /**
  * Analytics manager for swap flow tracking.
@@ -21,8 +19,8 @@ class SwapAnalyticsManager @Inject constructor() {
      */
     fun trackSwapStarted(tokenIn: String, tokenOut: String) {
         swapStartTime = System.currentTimeMillis()
-        Log.d(TAG, "Swap started: $tokenIn → $tokenOut")
-        // TODO: Send to Firebase Analytics
+        Timber.d("Swap started: $tokenIn → $tokenOut")
+
     }
 
     /**
@@ -37,16 +35,16 @@ class SwapAnalyticsManager @Inject constructor() {
      */
     fun trackQuoteFetched(success: Boolean, cached: Boolean = false) {
         val durationMs = System.currentTimeMillis() - quoteStartTime
-        Log.d(TAG, "Quote fetched: success=$success, cached=$cached, duration=${durationMs}ms")
-        // TODO: Send to Firebase Analytics
+        Timber.d("Quote fetched: success=$success, cached=$cached, duration=${durationMs}ms")
+
     }
 
     /**
      * Track swap execution started.
      */
     fun trackSwapExecutionStarted(amountIn: String, amountOut: String) {
-        Log.d(TAG, "Swap execution: in=$amountIn, out=$amountOut")
-        // TODO: Send to Firebase Analytics
+        Timber.d("Swap execution: in=$amountIn, out=$amountOut")
+
     }
 
     /**
@@ -54,24 +52,24 @@ class SwapAnalyticsManager @Inject constructor() {
      */
     fun trackSwapCompleted(txHash: String) {
         val totalDurationMs = System.currentTimeMillis() - swapStartTime
-        Log.d(TAG, "Swap completed: txHash=$txHash, total=${totalDurationMs}ms")
-        // TODO: Send to Firebase Analytics
+        Timber.d("Swap completed: txHash=$txHash, total=${totalDurationMs}ms")
+
     }
 
     /**
      * Track swap failed.
      */
     fun trackSwapFailed(error: String, stage: SwapStage) {
-        Log.e(TAG, "Swap failed at $stage: $error")
-        // TODO: Send to Firebase Analytics
+        Timber.e("Swap failed at $stage: $error")
+
     }
 
     /**
      * Track user cancelled swap.
      */
     fun trackSwapCancelled(stage: SwapStage) {
-        Log.d(TAG, "Swap cancelled at $stage")
-        // TODO: Send to Firebase Analytics
+        Timber.d("Swap cancelled at $stage")
+
     }
 }
 

@@ -1,6 +1,5 @@
 package com.otistran.flash_trade.data.repository
 
-import android.util.Log
 import com.otistran.flash_trade.core.datastore.UserPreferences
 import com.otistran.flash_trade.data.mapper.toUser
 import com.otistran.flash_trade.data.service.PrivyAuthService
@@ -16,11 +15,10 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import timber.log.Timber
 import javax.inject.Inject
 import io.privy.auth.AuthState as PrivyAuthState
 import io.privy.auth.oAuth.OAuthProvider as PrivyOAuthProvider
-
-private const val TAG = "AuthRepositoryImpl"
 
 /**
  * Implementation of AuthRepository using Privy SDK.
@@ -68,18 +66,18 @@ class AuthRepositoryImpl @Inject constructor(
             result.fold(
                 onSuccess = { privyUser ->
                     val user = privyUser.toUser()
-                    Log.d(TAG, "Passkey login success: ${user.id}")
+                    Timber.d("Passkey login success: ${user.id}")
                     // Save login state to DataStore
                     userPreferences.saveLoginState(user)
                     Result.Success(user)
                 },
                 onFailure = { error ->
-                    Log.e(TAG, "Passkey login failed", error)
+                    Timber.e("Passkey login failed", error)
                     Result.Error(mapError(error), error)
                 }
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Passkey login exception", e)
+            Timber.e("Passkey login exception", e)
             Result.Error(mapError(e), e)
         }
     }
@@ -90,18 +88,18 @@ class AuthRepositoryImpl @Inject constructor(
             result.fold(
                 onSuccess = { privyUser ->
                     val user = privyUser.toUser()
-                    Log.d(TAG, "Passkey signup success: ${user.id}")
+                    Timber.d("Passkey signup success: ${user.id}")
                     // Save login state to DataStore
                     userPreferences.saveLoginState(user)
                     Result.Success(user)
                 },
                 onFailure = { error ->
-                    Log.e(TAG, "Passkey signup failed", error)
+                    Timber.e("Passkey signup failed", error)
                     Result.Error(mapError(error), error)
                 }
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Passkey signup exception", e)
+            Timber.e("Passkey signup exception", e)
             Result.Error(mapError(e), e)
         }
     }
@@ -117,18 +115,18 @@ class AuthRepositoryImpl @Inject constructor(
                 onSuccess = { privyUser ->
                     handleSuccessfulLogin(privyUser)
                     val user = privyUser.toUser()
-                    Log.d(TAG, "OAuth login success: ${user.id}, user: $user")
+                    Timber.d("OAuth login success: ${user.id}, user: $user")
                     // Save login state to DataStore
                     userPreferences.saveLoginState(user)
                     Result.Success(user)
                 },
                 onFailure = { error ->
-                    Log.e(TAG, "OAuth login failed", error)
+                    Timber.e("OAuth login failed", error)
                     Result.Error(mapError(error), error)
                 }
             )
         } catch (e: Exception) {
-            Log.e(TAG, "OAuth login exception", e)
+            Timber.e("OAuth login exception", e)
             Result.Error(mapError(e), e)
         }
     }
@@ -138,18 +136,18 @@ class AuthRepositoryImpl @Inject constructor(
             val result = privyAuthService.logout()
             result.fold(
                 onSuccess = {
-                    Log.d(TAG, "Logout success")
+                    Timber.d("Logout success")
                     // Save login state to DataStore
                     userPreferences.clearLoginState()
                     Result.Success(Unit)
                 },
                 onFailure = { error ->
-                    Log.e(TAG, "Logout failed", error)
+                    Timber.e("Logout failed", error)
                     Result.Error("Logout failed", error)
                 }
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Logout exception", e)
+            Timber.e("Logout exception", e)
             Result.Error("Logout failed", e)
         }
     }
@@ -159,7 +157,7 @@ class AuthRepositoryImpl @Inject constructor(
      * Wallet creation runs in parallel to minimize wait time.
      */
     private suspend fun handleSuccessfulLogin(privyUser: PrivyUser): Result<User> = coroutineScope {
-        Log.d(TAG, "Login success for user: ${privyUser.id}")
+        Timber.d("Login success for user: ${privyUser.id}")
 
         // Convert to domain user first (may already have wallet addresses)
         var user = privyUser.toUser()
@@ -182,12 +180,12 @@ class AuthRepositoryImpl @Inject constructor(
             )
             // Update DataStore with wallet addresses
             userPreferences.saveLoginState(user)
-            Log.d(TAG, "Wallets created - ETH: ${walletResult.ethereumAddress}")
+            Timber.d("Wallets created - ETH: ${walletResult.ethereumAddress}")
         }
 
         // Log any wallet creation errors (non-blocking)
         walletResult.ethereumError?.let {
-            Log.w(TAG, "Ethereum wallet creation failed (non-critical)", it)
+            Timber.w("Ethereum wallet creation failed (non-critical)", it)
         }
 
         Result.Success(user)

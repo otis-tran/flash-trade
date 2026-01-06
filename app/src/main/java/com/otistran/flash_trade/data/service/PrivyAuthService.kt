@@ -1,19 +1,19 @@
 package com.otistran.flash_trade.data.service
 
-import android.util.Log
 import com.otistran.flash_trade.di.PrivyProvider
 import io.privy.auth.PrivyUser
 import io.privy.wallet.ethereum.EmbeddedEthereumWallet
+import io.privy.wallet.ethereum.EthereumRpcRequest
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import org.json.JSONObject
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 import io.privy.auth.AuthState as PrivyAuthState
 import io.privy.auth.oAuth.OAuthProvider as PrivyOAuthProvider
-
-private const val TAG = "PrivyAuthService"
 
 /**
  * Wrapper service for Privy SDK operations.
@@ -62,7 +62,7 @@ class PrivyAuthService @Inject constructor() {
     suspend fun loginWithPasskey(relyingParty: String): Result<PrivyUser> {
         val privy = PrivyProvider.getInstance()
         privy.getAuthState()
-        Log.d(TAG, "loginWithPasskey() called with: relyingParty = $relyingParty")
+        Timber.d("loginWithPasskey() called with: relyingParty = $relyingParty")
         return privy.passkey.login(relyingParty = relyingParty)
     }
 
@@ -87,8 +87,7 @@ class PrivyAuthService @Inject constructor() {
     ): Result<PrivyUser> {
         val privy = PrivyProvider.getInstance()
         privy.getAuthState()
-        Log.d(
-            TAG,
+        Timber.d(
             "loginWithOAuth() called with: provider = $provider, appUrlScheme = $appUrlScheme"
         )
         return privy.oAuth.login(
@@ -106,7 +105,7 @@ class PrivyAuthService @Inject constructor() {
             privy.logout()
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Logout failed", e)
+            Timber.e("Logout failed", e)
             Result.failure(e)
         }
     }
@@ -128,21 +127,21 @@ class PrivyAuthService @Inject constructor() {
             // Check if user already has a wallet
             val existingWallet = user.embeddedEthereumWallets.firstOrNull()
             if (existingWallet != null) {
-                Log.d(TAG, "User already has Ethereum wallet: ${existingWallet.address}")
+                Timber.d("User already has Ethereum wallet: ${existingWallet.address}")
                 return Result.success(existingWallet)
             }
 
             // Create new wallet
-            Log.d(TAG, "Creating new Ethereum wallet for user: ${user.id}")
+            Timber.d("Creating new Ethereum wallet for user: ${user.id}")
             val result = user.createEthereumWallet(allowAdditional = false)
             result.onSuccess { wallet ->
-                Log.d(TAG, "Ethereum wallet created: ${wallet.address}")
+                Timber.d("Ethereum wallet created: ${wallet.address}")
             }.onFailure { error ->
-                Log.e(TAG, "Failed to create Ethereum wallet", error)
+                Timber.e("Failed to create Ethereum wallet", error)
             }
             result
         } catch (e: Exception) {
-            Log.e(TAG, "Exception creating Ethereum wallet", e)
+            Timber.e("Exception creating Ethereum wallet", e)
             Result.failure(e)
         }
     }
@@ -160,6 +159,64 @@ class PrivyAuthService @Inject constructor() {
             ethereumAddress = ethResult.getOrNull()?.address,
             ethereumError = ethResult.exceptionOrNull()
         )
+    }
+
+    /**
+     * Sign an Ethereum transaction using Privy wallet.
+     *
+     * @param wallet The Ethereum wallet to sign with
+     * @param to Recipient address
+     * @param value Transaction value in wei (hex string, e.g., "0x186a0")
+     * @param chainId Chain ID in hex (e.g., "0x1" for Ethereum mainnet, "0x2105" for Base)
+     * @param data Encoded transaction data (from buildEncodedRoute)
+     * @param gas Gas limit in hex (e.g., "0x5208")
+     * @param from Sender address (wallet address)
+     * @return Result containing transaction hash on success
+     */
+    suspend fun signTransaction(
+        wallet: EmbeddedEthereumWallet,
+        to: String,
+        value: String,
+        chainId: String,
+        data: String,
+        gasLimit: String,
+        from: String
+    ): Result<String> {
+        return try {
+            Timber.d("Signing transaction: to=$to, value=$value, chainId=$chainId")
+
+            // Build transaction JSON for Privy
+            val transactionJson = JSONObject().apply {
+                put("to", to)
+                put("value", value)
+                put("chainId", chainId)
+                put("from", from)
+                put("data", data)
+                put("gasLimit", gasLimit)
+
+            }.toString()
+
+            Timber.d("Transaction JSON: $transactionJson")
+
+            // Sign transaction using Privy provider
+            val request = EthereumRpcRequest.ethSendTransaction(transactionJson)
+            val result = wallet.provider.request(request)
+
+            // Get transaction hash from result
+            val txHash = result.getOrNull()?.data as? String
+
+            if (txHash != null) {
+                Timber.d("Transaction signed successfully: $txHash")
+                Result.success(txHash)
+            } else {
+                val error = result.exceptionOrNull()
+                Timber.e("Failed to sign transaction: ${error?.message}", error)
+                Result.failure(error ?: Exception("Failed to sign transaction"))
+            }
+        } catch (e: Exception) {
+            Timber.e("Exception signing transaction", e)
+            Result.failure(e)
+        }
     }
 }
 

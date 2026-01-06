@@ -91,7 +91,7 @@ private fun BottomNavBarPreview() {
     FlashTradeTheme {
         BottomNavBar(
             destinations = TopLevelDestination.entries,
-            currentDestination = TopLevelDestination.TRADING,
+            currentDestination = TopLevelDestination.HOME,
             onNavigateToDestination = {}
         )
     }

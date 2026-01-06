@@ -4,6 +4,7 @@ agp = "8.11.2"
 barcodeScanning = "17.3.0"
 cameraCamera2 = "1.5.2"
 coilCompose = "3.3.0"
+web3jCore = "4.12.3-android"
 kotlin = "2.2.21"
 ksp = "2.2.21-2.0.4"
 
@@ -51,7 +52,6 @@ paging = "3.3.6"
 # Other Libraries
 zxingCore = "3.5.4"  # ZXing core
 privyCore = "0.9.0"
-ethers = "1.5.1"
 
 # Credentials API for passkey
 credentials = "1.6.0-beta03"
@@ -59,13 +59,12 @@ credentials = "1.6.0-beta03"
 # Jetpack Startup
 startupRuntime = "1.2.0"
 
-# Testing
-junit = "4.13.2"
-coroutinesTest = "1.10.2"
-
 # Serialization
 kotlinxSerializationPlugin = "2.3.0"
 kotlinxSerializationJson = "1.9.0"
+
+# Logging
+timber = "5.0.1"
 
 #
 okhttp = "5.3.2"
@@ -94,6 +93,7 @@ androidx-startup-runtime = { module = "androidx.startup:startup-runtime", versio
 barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "barcodeScanning" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilCompose" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coilCompose" }
+web3j-core = { module = "org.web3j:core", version.ref = "web3jCore" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "androidxHiltNavigationCompose" }
@@ -138,13 +138,6 @@ androidx-paging-compose = { group = "androidx.paging", name = "paging-compose", 
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxingCore" }
 privy-core = { group = "io.privy", name = "privy-core", version.ref = "privyCore" }
 
-# ethers
-ethers-bom = { group = "io.kriptal.ethers", name = "ethers-bom", version.ref = "ethers" }
-ethers-abi = { group = "io.kriptal.ethers", name = "ethers-abi" }
-ethers-core = { group = "io.kriptal.ethers", name = "ethers-core" }
-ethers-providers = { group = "io.kriptal.ethers", name = "ethers-providers" }
-ethers-signers = { group = "io.kriptal.ethers", name = "ethers-signers" }
-
 # Credentials API for passkey
 androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "credentials" }
 androidx-credentials-play-services-auth = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
@@ -152,12 +145,11 @@ androidx-credentials-play-services-auth = { module = "androidx.credentials:crede
 # Debug only
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling", version.ref = "composeUi" }
 
-# Testing
-junit = { group = "junit", name = "junit", version.ref = "junit" }
-kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
-
 # Serialization
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+
+# Logging
+timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
 
 #
 okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
@@ -168,5 +160,4 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-ethers-abigen = { id = "io.kriptal.ethers.abigen-plugin", version.ref = "ethers" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlinxSerializationPlugin" }
