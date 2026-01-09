@@ -10,6 +10,7 @@ data class SettingsState(
     val networkMode: NetworkMode = NetworkMode.ETHEREUM,
     val themeMode: ThemeMode = ThemeMode.DARK,
     val isAutoSellEnabled: Boolean = true,
+    val autoSellDurationMinutes: Int = 60,
     val isLoading: Boolean = true,
     val isLoggingOut: Boolean = false,
     val showNetworkSelector: Boolean = false,

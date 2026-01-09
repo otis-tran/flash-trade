@@ -7,7 +7,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.toRoute
 import com.otistran.flash_trade.presentation.feature.activity.ActivityScreen
 import com.otistran.flash_trade.presentation.feature.auth.LoginScreen
 import com.otistran.flash_trade.presentation.feature.portfolio.PortfolioScreen
@@ -32,15 +31,6 @@ fun FlashTradeNavGraph(
         modifier = modifier
     ) {
         // ==================== Auth Flow ====================
-        composable<Welcome> {
-            // Welcome screen not implemented - redirect to Login
-            androidx.compose.runtime.LaunchedEffect(Unit) {
-                navController.navigate(Login) {
-                    popUpTo<Welcome> { inclusive = true }
-                }
-            }
-        }
-
         composable<Login> {
             LoginScreen(
                 onNavigateToTrading = { navController.navigateToHome() },
@@ -80,7 +70,7 @@ fun FlashTradeNavGraph(
             composable<SettingsScreen> {
                 SettingsScreen(
                     onNavigateToLogin = { navController.navigateToLogin() },
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.navigateToHomeTab() }
                 )
             }
         }

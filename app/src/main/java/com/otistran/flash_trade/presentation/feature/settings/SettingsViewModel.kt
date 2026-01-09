@@ -35,6 +35,10 @@ class SettingsViewModel @Inject constructor(
             // Theme
             is SettingsEvent.ChangeThemeMode -> changeThemeMode(event.mode)
 
+            // Auto-Sell
+            is SettingsEvent.SetAutoSellEnabled -> setAutoSellEnabled(event.enabled)
+            is SettingsEvent.SetAutoSellDuration -> setAutoSellDuration(event.minutes)
+
             // Logout
             SettingsEvent.RequestLogout -> setState { copy(showLogoutConfirmSheet = true) }
             SettingsEvent.ConfirmLogout -> confirmLogout()
@@ -57,6 +61,7 @@ class SettingsViewModel @Inject constructor(
                             networkMode = settings.networkMode,
                             themeMode = settings.themeMode,
                             isAutoSellEnabled = settings.isAutoSellEnabled,
+                            autoSellDurationMinutes = settings.autoSellDurationMinutes,
                             isLoading = false
                         )
                     }
@@ -84,6 +89,26 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 settingsRepository.setThemeMode(mode)
+            } catch (e: Exception) {
+                setState { copy(error = e.message) }
+            }
+        }
+    }
+
+    private fun setAutoSellEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                settingsRepository.setAutoSellEnabled(enabled)
+            } catch (e: Exception) {
+                setState { copy(error = e.message) }
+            }
+        }
+    }
+
+    private fun setAutoSellDuration(minutes: Int) {
+        viewModelScope.launch {
+            try {
+                settingsRepository.setAutoSellDurationMinutes(minutes)
             } catch (e: Exception) {
                 setState { copy(error = e.message) }
             }

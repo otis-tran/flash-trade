@@ -16,42 +16,42 @@ sealed class AppException(
      * 400 Bad Request - Invalid request parameters
      */
     class BadRequest(
-        message: String = "Yêu cầu không hợp lệ"
+        message: String = "Invalid request"
     ) : AppException(message, 400)
 
     /**
      * 401 Unauthorized - Authentication required or token expired
      */
     class Unauthorized(
-        message: String = "Phiên đăng nhập hết hạn, vui lòng đăng nhập lại"
+        message: String = "Session expired, please login again"
     ) : AppException(message, 401)
 
     /**
      * 403 Forbidden - No permission to access resource
      */
     class Forbidden(
-        message: String = "Bạn không có quyền truy cập"
+        message: String = "Access denied"
     ) : AppException(message, 403)
 
     /**
      * 404 Not Found - Resource not found
      */
     class NotFound(
-        message: String = "Không tìm thấy dữ liệu"
+        message: String = "Data not found"
     ) : AppException(message, 404)
 
     /**
      * 409 Conflict - Resource conflict (duplicate, etc.)
      */
     class Conflict(
-        message: String = "Dữ liệu bị xung đột"
+        message: String = "Data conflict"
     ) : AppException(message, 409)
 
     /**
      * 422 Unprocessable Entity - Validation error
      */
     class ValidationError(
-        message: String = "Dữ liệu không hợp lệ",
+        message: String = "Invalid data",
         val errors: Map<String, String>? = null
     ) : AppException(message, 422)
 
@@ -59,14 +59,14 @@ sealed class AppException(
      * 429 Too Many Requests - Rate limited
      */
     class RateLimited(
-        message: String = "Quá nhiều yêu cầu, vui lòng thử lại sau"
+        message: String = "Too many requests, please try again later"
     ) : AppException(message, 429)
 
     /**
      * 5xx Server Error
      */
     class ServerError(
-        message: String = "Lỗi máy chủ, vui lòng thử lại sau",
+        message: String = "Server error, please try again later",
         code: Int = 500
     ) : AppException(message, code)
 
@@ -75,7 +75,7 @@ sealed class AppException(
      */
     class HttpError(
         code: Int,
-        message: String = "Lỗi HTTP $code"
+        message: String = "HTTP error $code"
     ) : AppException(message, code)
 
     // ==================== Network Errors ====================
@@ -84,21 +84,21 @@ sealed class AppException(
      * No internet connection
      */
     class NoConnection(
-        message: String = "Không có kết nối mạng"
+        message: String = "No internet connection"
     ) : AppException(message)
 
     /**
      * Connection timeout
      */
     class Timeout(
-        message: String = "Kết nối quá thời gian chờ"
+        message: String = "Connection timeout"
     ) : AppException(message)
 
     /**
      * SSL/TLS error
      */
     class SSLError(
-        message: String = "Lỗi bảo mật kết nối"
+        message: String = "SSL connection error"
     ) : AppException(message)
 
     // ==================== Data Errors ====================
@@ -107,7 +107,7 @@ sealed class AppException(
      * JSON parsing error
      */
     class ParseError(
-        message: String = "Lỗi xử lý dữ liệu",
+        message: String = "Data processing error",
         cause: Throwable? = null
     ) : AppException(message, cause = cause)
 
@@ -115,7 +115,7 @@ sealed class AppException(
      * Empty response body
      */
     class EmptyResponse(
-        message: String = "Không có dữ liệu trả về"
+        message: String = "No data returned"
     ) : AppException(message)
 
     // ==================== Business Logic Errors ====================
@@ -134,7 +134,7 @@ sealed class AppException(
      * Unknown/unexpected error
      */
     class Unknown(
-        message: String = "Đã xảy ra lỗi không xác định",
+        message: String = "An unknown error occurred",
         cause: Throwable? = null
     ) : AppException(message, cause = cause)
 
@@ -144,15 +144,15 @@ sealed class AppException(
          */
         fun fromHttpCode(code: Int, message: String? = null): AppException {
             return when (code) {
-                400 -> BadRequest(message ?: "Yêu cầu không hợp lệ")
-                401 -> Unauthorized(message ?: "Phiên đăng nhập hết hạn")
-                403 -> Forbidden(message ?: "Không có quyền truy cập")
-                404 -> NotFound(message ?: "Không tìm thấy dữ liệu")
-                409 -> Conflict(message ?: "Dữ liệu bị xung đột")
-                422 -> ValidationError(message ?: "Dữ liệu không hợp lệ")
-                429 -> RateLimited(message ?: "Quá nhiều yêu cầu")
-                in 500..599 -> ServerError(message ?: "Lỗi máy chủ", code)
-                else -> HttpError(code, message ?: "Lỗi HTTP $code")
+                400 -> BadRequest(message ?: "Invalid request")
+                401 -> Unauthorized(message ?: "Session expired")
+                403 -> Forbidden(message ?: "Access denied")
+                404 -> NotFound(message ?: "Data not found")
+                409 -> Conflict(message ?: "Data conflict")
+                422 -> ValidationError(message ?: "Invalid data")
+                429 -> RateLimited(message ?: "Too many requests")
+                in 500..599 -> ServerError(message ?: "Server error", code)
+                else -> HttpError(code, message ?: "HTTP error $code")
             }
         }
     }

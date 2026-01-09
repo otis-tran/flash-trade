@@ -22,13 +22,11 @@ object QRCodeGenerator {
     fun generateQRCode(
         address: String,
         size: Int = DEFAULT_SIZE,
-        chainId: Long? = null
+        chainId: Long? = null  // Kept for API compatibility but ignored
     ): Bitmap {
-        val content = if (chainId != null) {
-            "ethereum:$address@$chainId"  // EIP-681 format
-        } else {
-            address  // Simple address
-        }
+        // Use EIP-831 format (ethereum:address) - widely supported by MetaMask, Binance, etc.
+        // Note: EIP-681 format (ethereum:address@chainId) is NOT supported by most wallets
+        val content = "ethereum:$address"
 
         val writer = QRCodeWriter()
         val bitMatrix = writer.encode(

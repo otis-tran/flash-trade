@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.otistran.flash_trade.core.ui.components.LoadingIndicator
 import com.otistran.flash_trade.core.ui.components.NetworkSelectorBottomSheet
 import com.otistran.flash_trade.domain.model.NetworkMode
+import com.otistran.flash_trade.presentation.feature.settings.components.AutoSellSettingsSection
 import com.otistran.flash_trade.presentation.feature.settings.components.LogoutConfirmSheet
 import com.otistran.flash_trade.presentation.feature.settings.components.LogoutSection
 import com.otistran.flash_trade.presentation.feature.settings.components.NetworkModeSection
@@ -131,6 +132,11 @@ private fun SettingsContent(
             onThemeModeChange = { mode ->
                 onEvent(SettingsEvent.ChangeThemeMode(mode))
             }
+        )
+
+        AutoSellSettingsSection(
+            state = state,
+            onEvent = onEvent
         )
 
         Spacer(modifier = Modifier.weight(1f))

@@ -2,8 +2,12 @@ package com.otistran.flash_trade.presentation.feature.portfolio
 
 import androidx.lifecycle.viewModelScope
 import com.otistran.flash_trade.core.base.BaseViewModel
+import com.otistran.flash_trade.core.event.AppEventBus
+import com.otistran.flash_trade.data.local.entity.PurchaseStatus
 import com.otistran.flash_trade.domain.model.NetworkMode
+import com.otistran.flash_trade.domain.model.Purchase
 import com.otistran.flash_trade.domain.repository.AuthRepository
+import com.otistran.flash_trade.domain.repository.PurchaseRepository
 import com.otistran.flash_trade.domain.repository.SettingsRepository
 import com.otistran.flash_trade.domain.usecase.portfolio.GetTokensByAddressUseCase
 import com.otistran.flash_trade.util.Result
@@ -11,6 +15,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -20,15 +25,43 @@ class PortfolioViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val settingsRepository: SettingsRepository,
     private val getTokensByAddressUseCase: GetTokensByAddressUseCase,
+    private val purchaseRepository: PurchaseRepository,
+    private val appEventBus: AppEventBus
 ) : BaseViewModel<PortfolioState, PortfolioEvent, PortfolioEffect>(
     initialState = PortfolioState()
 ) {
     private var loadJob: Job? = null
+    private var activePurchases: List<Purchase> = emptyList()
 
     init {
         observeNetworkMode(settingsRepository) { network ->
             setState { copy(currentNetwork = network) }
             loadPortfolioWithNetwork(network)
+        }
+
+        // Listen for refresh events from AppEventBus (e.g., after swap success)
+        viewModelScope.launch {
+            appEventBus.refreshPortfolio.collect {
+                refreshPortfolio()
+            }
+        }
+
+        // Observe active purchases for auto-sell countdown
+        observeActivePurchases()
+    }
+
+    /** Observe active purchases (HELD, SELLING, RETRYING) to show countdown on tokens */
+    private fun observeActivePurchases() {
+        viewModelScope.launch {
+            purchaseRepository.observeActivePurchases().collectLatest { purchases ->
+                activePurchases = purchases
+                // Re-merge tokens with updated autoSellTime
+                val currentTokens = currentState.tokens
+                if (currentTokens.isNotEmpty()) {
+                    val mergedTokens = mergeTokensWithPurchases(currentTokens)
+                    setState { copy(tokens = mergedTokens) }
+                }
+            }
         }
     }
 
@@ -36,10 +69,8 @@ class PortfolioViewModel @Inject constructor(
         when (event) {
             PortfolioEvent.LoadPortfolio -> refreshPortfolio()
             PortfolioEvent.CopyWalletAddress -> copyWalletAddress()
-            is PortfolioEvent.SelectAssetTab -> selectAssetTab(event.tab)
             PortfolioEvent.DismissError -> setState { copy(error = null) }
             // Quick Actions
-            PortfolioEvent.OnBuyClick -> setEffect(PortfolioEffect.ShowToast("Buy coming soon"))
             PortfolioEvent.OnSwapClick -> setEffect(PortfolioEffect.NavigateToSwap)
             PortfolioEvent.OnSendClick -> setEffect(PortfolioEffect.ShowToast("Send coming soon"))
             PortfolioEvent.OnReceiveClick -> setState { copy(showQRSheet = true) }
@@ -138,10 +169,11 @@ class PortfolioViewModel @Inject constructor(
                 is Result.Success -> {
                     val data = tokensResult.data
                     Timber.d("Tokens: ${data.tokens.size}, Total: $${data.totalBalanceUsd}")
+                    val mergedTokens = mergeTokensWithPurchases(data.tokens)
                     setState {
                         copy(
                             isLoadingTokens = false,
-                            tokens = data.tokens,
+                            tokens = mergedTokens,
                             totalBalanceUsd = data.totalBalanceUsd
                         )
                     }
@@ -171,11 +203,29 @@ class PortfolioViewModel @Inject constructor(
         }
     }
 
-    // ==================== Asset Tab Selection ====================
+    // ==================== Merge autoSellTime from Purchases ====================
 
-    private fun selectAssetTab(tab: AssetTab) {
-        Timber.d("selectAssetTab() - tab: $tab")
-        setState { copy(selectedAssetTab = tab) }
+    /** Merge autoSellTime from active purchases into tokens based on address match */
+    private fun mergeTokensWithPurchases(tokens: List<TokenHolding>): List<TokenHolding> {
+        if (activePurchases.isEmpty()) return tokens
+        
+        // Build lookup: lowercase tokenAddress -> autoSellTime
+        val autoSellTimeByAddress = activePurchases
+            .filter { it.autoSellTime > System.currentTimeMillis() } // Only active countdowns
+            .associateBy(
+                keySelector = { it.tokenAddress.lowercase() },
+                valueTransform = { it.autoSellTime }
+            )
+        
+        return tokens.map { token ->
+            val key = token.address?.lowercase()
+            val autoSellTime = key?.let { autoSellTimeByAddress[it] }
+            if (autoSellTime != null) {
+                token.copy(autoSellTime = autoSellTime)
+            } else {
+                token
+            }
+        }
     }
 
     // ==================== Copy Address ====================

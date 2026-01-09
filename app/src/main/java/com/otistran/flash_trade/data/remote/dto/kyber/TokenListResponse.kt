@@ -23,7 +23,7 @@ data class TokenDto(
     @Json(name = "symbol") val symbol: String? = null,
     @Json(name = "decimals") val decimals: Int = 0,
     @Json(name = "logoUrl") val logoUrl: String? = null,
-    @Json(name = "totalSupply") val totalSupply: Long? = null,
+    @Json(name = "totalSupply") val totalSupply: Double? = null,
     @Json(name = "isVerified") val isVerified: Boolean = false,
     @Json(name = "isWhitelisted") val isWhitelisted: Boolean = false,
     @Json(name = "isStable") val isStable: Boolean = false,

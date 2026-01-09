@@ -3,7 +3,7 @@ package com.otistran.flash_trade.core.util
 object Constants {
     // Auth
     const val OAUTH_SCHEME = "flashtrade"
-    const val PASSKEY_RELYING_PARTY = "flashtrade.app" // Update với domain thật
+    const val PASSKEY_RELYING_PARTY = "flashtrade.app" // Update with real domain
 
     // Network
     const val BASE_URL_MAINNET = "https://api.kyberswap.com/"

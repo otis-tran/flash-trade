@@ -22,12 +22,14 @@ class SettingsRepositoryImpl @Inject constructor(
         return combine(
             userPreferences.networkMode,
             userPreferences.themeMode,
-            userPreferences.autoSellEnabled
-        ) { network, theme, autoSell ->
+            userPreferences.autoSellEnabled,
+            userPreferences.autoSellDurationMinutes
+        ) { network, theme, autoSell, autoSellDuration ->
             Settings(
                 networkMode = NetworkMode.fromNameSafe(network),
                 themeMode = ThemeMode.valueOf(theme),
-                isAutoSellEnabled = autoSell
+                isAutoSellEnabled = autoSell,
+                autoSellDurationMinutes = autoSellDuration
             )
         }
     }
@@ -42,6 +44,18 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setAutoSellEnabled(enabled: Boolean) {
         userPreferences.setAutoSellEnabled(enabled)
+    }
+
+    override suspend fun setAutoSellDurationMinutes(minutes: Int) {
+        userPreferences.setAutoSellDurationMinutes(minutes)
+    }
+
+    override suspend fun isAutoSellEnabled(): Boolean {
+        return userPreferences.getAutoSellEnabled()
+    }
+
+    override suspend fun getAutoSellDurationMinutes(): Int {
+        return userPreferences.getAutoSellDurationMinutes()
     }
 
     override suspend fun getDefaultSlippage(): Double {

@@ -24,7 +24,7 @@ object DatabaseModule {
             FlashTradeDatabase::class.java,
             "flash_trade.db"
         )
-            .fallbackToDestructiveMigration(false) // For development: drop & recreate on schema change
+            .fallbackToDestructiveMigration(true) // For development: drop & recreate on schema change
             .build()
     }
 

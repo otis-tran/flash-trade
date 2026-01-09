@@ -2,24 +2,32 @@ package com.otistran.flash_trade.presentation.feature.activity
 
 import androidx.lifecycle.viewModelScope
 import com.otistran.flash_trade.core.base.BaseViewModel
+import com.otistran.flash_trade.data.service.PrivyAuthService
 import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.repository.AuthRepository
+import com.otistran.flash_trade.domain.repository.PurchaseRepository
 import com.otistran.flash_trade.domain.repository.SettingsRepository
 import com.otistran.flash_trade.domain.usecase.activity.GetTransactionsUseCase
+import com.otistran.flash_trade.domain.usecase.swap.RetryAutoSellUseCase
 import com.otistran.flash_trade.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
  * ViewModel for Activity screen - handles transaction history display.
- * Reuses GetTransactionsUseCase from portfolio domain.
  */
 @HiltViewModel
 class ActivityViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val settingsRepository: SettingsRepository,
-    private val getTransactionsUseCase: GetTransactionsUseCase
+    private val getTransactionsUseCase: GetTransactionsUseCase,
+    private val purchaseRepository: PurchaseRepository,
+    private val retryAutoSellUseCase: RetryAutoSellUseCase,
+    private val privyAuthService: PrivyAuthService
 ) : BaseViewModel<ActivityState, ActivityEvent, ActivityEffect>(
     initialState = ActivityState()
 ) {
@@ -38,6 +46,9 @@ class ActivityViewModel @Inject constructor(
                 refreshTransactionsWithNetwork(network)
             }
         }
+        
+        // Observe auto-sell history
+        observeAutoSellHistory()
     }
 
     override fun onEvent(event: ActivityEvent) {
@@ -46,7 +57,71 @@ class ActivityViewModel @Inject constructor(
             ActivityEvent.RefreshTransactions -> refreshTransactions()
             ActivityEvent.LoadMoreTransactions -> loadMoreTransactions()
             is ActivityEvent.OpenTransactionDetails -> openTransactionDetails(event.txHash)
+            is ActivityEvent.SelectTab -> selectTab(event.tab)
+            is ActivityEvent.RetryAutoSell -> retryAutoSell(event.txHash)
             ActivityEvent.DismissError -> setState { copy(error = null) }
+        }
+    }
+
+    private fun selectTab(tab: ActivityTab) {
+        setState { copy(selectedTab = tab) }
+    }
+
+    // ==================== Auto-Sell History ====================
+
+    private fun observeAutoSellHistory() {
+        viewModelScope.launch {
+            // Get current wallet address to filter purchases
+            val user = privyAuthService.getUser()
+            val walletAddress = user?.embeddedEthereumWallets?.firstOrNull()?.address
+            
+            if (walletAddress == null) {
+                // No wallet - show empty list
+                setState { copy(autoSellHistory = emptyList()) }
+                return@launch
+            }
+
+            // Filter purchases by wallet address
+            purchaseRepository.observeAllPurchasesByWallet(walletAddress).collectLatest { purchases ->
+                val records = purchases.map { purchase ->
+                    AutoSellRecord(
+                        tokenName = purchase.tokenName,
+                        tokenSymbol = purchase.tokenSymbol,
+                        purchaseAmount = formatTokenAmount(purchase.amountOut, purchase.tokenDecimals),
+                        sellAmount = null, // TODO: track sell amount
+                        purchaseTime = purchase.purchaseTime,
+                        sellTime = null,
+                        status = purchase.status.name,
+                        buyTxHash = purchase.txHash,
+                        sellTxHash = purchase.sellTxHash,
+                        autoSellTime = purchase.autoSellTime
+                    )
+                }.sortedByDescending { it.purchaseTime }
+                
+                setState { copy(autoSellHistory = records) }
+            }
+        }
+    }
+
+    /** Format raw wei amount to human-readable with up to 6 decimals */
+    private fun formatTokenAmount(rawAmount: String, decimals: Int): String {
+        return try {
+            val raw = java.math.BigDecimal(rawAmount)
+            val formatted = raw.divide(java.math.BigDecimal.TEN.pow(decimals), 6, java.math.RoundingMode.DOWN)
+            formatted.stripTrailingZeros().toPlainString()
+        } catch (e: Exception) {
+            rawAmount // fallback to raw if parsing fails
+        }
+    }
+
+    private fun retryAutoSell(txHash: String) {
+        viewModelScope.launch {
+            try {
+                retryAutoSellUseCase(txHash)
+                setEffect(ActivityEffect.ShowToast("Auto-sell retrying..."))
+            } catch (e: Exception) {
+                setEffect(ActivityEffect.ShowToast("Retry failed: ${e.message}"))
+            }
         }
     }
 
@@ -54,7 +129,7 @@ class ActivityViewModel @Inject constructor(
 
     private fun loadTransactionsWithNetwork(network: NetworkMode) {
         viewModelScope.launch {
-            setState { copy(isLoading = true, error = null) }
+            setState { copy(isLoadingTransactions = true, error = null) }
 
             try {
                 val userAuthState = authRepository.getUserAuthState()
@@ -63,12 +138,12 @@ class ActivityViewModel @Inject constructor(
                 userAuthState.walletAddress?.let { address ->
                     fetchTransactions(address, network, page = 1)
                 } ?: run {
-                    setState { copy(isLoading = false, transactions = emptyList()) }
+                    setState { copy(isLoadingTransactions = false, transactions = emptyList()) }
                 }
             } catch (e: Exception) {
                 setState {
                     copy(
-                        isLoading = false,
+                        isLoadingTransactions = false,
                         error = e.message ?: "Failed to load transactions"
                     )
                 }
@@ -84,7 +159,7 @@ class ActivityViewModel @Inject constructor(
     // ==================== Refresh Transactions ====================
 
     private fun refreshTransactionsWithNetwork(network: NetworkMode) {
-        if (currentState.isLoading) return
+        if (currentState.isLoadingTransactions) return
 
         viewModelScope.launch {
             setState { copy(isRefreshing = true, error = null) }
@@ -118,7 +193,7 @@ class ActivityViewModel @Inject constructor(
             is Result.Success<List<Transaction>> -> {
                 setState {
                     copy(
-                        isLoading = false,
+                        isLoadingTransactions = false,
                         transactions = result.data,
                         currentPage = page,
                         hasMoreTransactions = result.data.isNotEmpty()
@@ -128,7 +203,7 @@ class ActivityViewModel @Inject constructor(
             is Result.Error -> {
                 setState {
                     copy(
-                        isLoading = false,
+                        isLoadingTransactions = false,
                         error = "Failed to load transactions: ${result.message}"
                     )
                 }

@@ -1,6 +1,7 @@
 package com.otistran.flash_trade
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,12 +18,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.compose.rememberNavController
 import com.otistran.flash_trade.core.datastore.UserPreferences
+import com.otistran.flash_trade.core.event.AppEventBus
 import com.otistran.flash_trade.di.PrivyProvider
 import com.otistran.flash_trade.domain.model.ThemeMode
-import com.otistran.flash_trade.domain.manager.PrefetchManager
 import com.otistran.flash_trade.domain.usecase.auth.CheckLoginStatusUseCase
 import com.otistran.flash_trade.presentation.navigation.BottomNavBar
 import com.otistran.flash_trade.presentation.navigation.FlashTradeNavGraph
@@ -45,7 +48,7 @@ class MainActivity : ComponentActivity() {
     lateinit var checkLoginStatusUseCase: CheckLoginStatusUseCase
 
     @Inject
-    lateinit var prefetchManager: PrefetchManager
+    lateinit var appEventBus: AppEventBus
 
     /** App ready state - splash stays until true */
     private var isAppReady by mutableStateOf(false)
@@ -64,8 +67,18 @@ class MainActivity : ComponentActivity() {
         PrivyProvider.setContext(this)
         enableEdgeToEdge()
 
-        // Check auth during splash (non-blocking)
+        // Check auth during splash
+        // Token loading is handled by WorkManager in FlashTradeApplication
         checkAuthDuringSplash()
+
+        // Collect toast events from AppEventBus (displays on any screen)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                appEventBus.toastEvents.collect { message ->
+                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
 
         setContent {
             val themeModeString by userPreferences.themeMode.collectAsState(initial = "DARK")
@@ -107,10 +120,6 @@ class MainActivity : ComponentActivity() {
 
     private fun checkAuthDuringSplash() {
         lifecycleScope.launch {
-            // Start prefetch in background (non-blocking)
-            launch { prefetchManager.prefetch() }
-
-            // Only wait for auth check (fast - reads from DataStore)
             val authResult = checkLoginStatusUseCase()
 
             startDestination = when (authResult) {

@@ -15,7 +15,7 @@ import javax.inject.Inject
 
 /**
  * ViewModel for login screen.
- * Handles passkey and OAuth authentication.
+ * Handles Google OAuth authentication.
  */
 @HiltViewModel
 class LoginViewModel @Inject constructor(
@@ -31,8 +31,6 @@ class LoginViewModel @Inject constructor(
 
     override fun onEvent(event: LoginEvent) {
         when (event) {
-            LoginEvent.PasskeyLogin -> handlePasskeyLogin(isSignup = false)
-            LoginEvent.PasskeySignup -> handlePasskeyLogin(isSignup = true)
             LoginEvent.GoogleLogin -> handleGoogleLogin()
             LoginEvent.Retry -> handleRetry()
             LoginEvent.DismissError -> setState { copy(error = null) }
@@ -63,31 +61,6 @@ class LoginViewModel @Inject constructor(
                 }
 
                 Result.Loading -> { /* Already checking */ }
-            }
-        }
-    }
-
-    // ==================== Passkey Login ====================
-
-    private fun handlePasskeyLogin(isSignup: Boolean) {
-        viewModelScope.launch {
-            setState { copy(isPasskeyLoading = true, error = null) }
-
-            val method = AuthMethod.Passkey(
-                relyingParty = BuildConfig.PRIVY_RELYING_PARTY
-            )
-
-            when (val result = loginUseCase(method, isSignup)) {
-                is Result.Success -> {
-                    setState { copy(isPasskeyLoading = false, user = result.data) }
-                    setEffect(LoginEffect.NavigateToTrading)
-                }
-
-                is Result.Error -> {
-                    setState { copy(isPasskeyLoading = false, error = result.message) }
-                }
-
-                Result.Loading -> { /* Already loading */ }
             }
         }
     }

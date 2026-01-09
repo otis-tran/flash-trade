@@ -4,13 +4,21 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.otistran.flash_trade.core.event.AppEventBus
 import com.otistran.flash_trade.data.local.database.dao.PurchaseDao
 import com.otistran.flash_trade.data.local.entity.PurchaseStatus
+import com.otistran.flash_trade.data.service.PrivyAuthService
 import com.otistran.flash_trade.domain.model.NetworkMode
-import com.otistran.flash_trade.domain.repository.SwapRepository
+import com.otistran.flash_trade.domain.repository.BalanceRepository
+import com.otistran.flash_trade.domain.usecase.swap.ExecuteSwapParams
+import com.otistran.flash_trade.domain.usecase.swap.ExecuteSwapResult
+import com.otistran.flash_trade.domain.usecase.swap.ExecuteSwapUseCase
+import com.otistran.flash_trade.domain.usecase.swap.TokenInfo
+import com.otistran.flash_trade.domain.usecase.swap.step.PreValidationStep
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import timber.log.Timber
+import java.math.BigDecimal
 import java.math.BigInteger
 
 /**
@@ -20,17 +28,27 @@ import java.math.BigInteger
  * - Retries indefinitely on transient failures (network, API)
  * - Stops only if purchase is CANCELLED or not found
  * - Sells at market price (any price)
+ * - Uses shared ExecuteSwapUseCase for consistent swap logic
+ * - Queries actual wallet balance instead of using stored amountOut
  */
 @HiltWorker
 class AutoSellWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val purchaseDao: PurchaseDao,
-    private val swapRepository: SwapRepository
+    private val balanceRepository: BalanceRepository,
+    private val privyAuthService: PrivyAuthService,
+    private val executeSwapUseCase: ExecuteSwapUseCase,
+    private val preValidationStep: PreValidationStep,
+    private val appEventBus: AppEventBus
 ) : CoroutineWorker(context, params) {
 
     companion object {
         const val KEY_TX_HASH = "tx_hash"
+        /** 5% slippage for auto-sell (meme tokens are volatile) */
+        private const val AUTO_SELL_SLIPPAGE_BPS = 500
+        /** Maximum retry attempts before marking as FAILED */
+        const val MAX_RETRY_ATTEMPTS = 10
     }
 
     override suspend fun doWork(): Result {
@@ -40,7 +58,14 @@ class AutoSellWorker @AssistedInject constructor(
             return Result.failure()  // Unrecoverable - no retry
         }
 
-        Timber.i("Starting auto-sell for $txHash (attempt ${runAttemptCount + 1})")
+        // Check max retries - fail gracefully after limit
+        if (runAttemptCount >= MAX_RETRY_ATTEMPTS) {
+            Timber.e("Auto-sell max retries ($MAX_RETRY_ATTEMPTS) reached for $txHash")
+            purchaseDao.updateStatus(txHash, PurchaseStatus.FAILED)
+            return Result.failure()
+        }
+
+        Timber.i("[AutoSell] ========== Starting auto-sell for $txHash (attempt ${runAttemptCount + 1}/$MAX_RETRY_ATTEMPTS) ==========")
 
         return try {
             executeAutoSell(txHash)
@@ -85,51 +110,125 @@ class AutoSellWorker @AssistedInject constructor(
             return Result.failure()  // Unrecoverable
         }
 
-        // Step 7: Get route (token → stablecoin)
-        val amountToSell = purchase.amountOut.toBigIntegerOrNull()
-        if (amountToSell == null || amountToSell <= BigInteger.ZERO) {
-            Timber.e("Invalid amountOut: ${purchase.amountOut}")
-            purchaseDao.updateStatus(txHash, PurchaseStatus.HELD) // Revert
-            return Result.failure()  // Unrecoverable
+        // Step 7: Get wallet from Privy session
+        Timber.d("[AutoSell] Step 7: Getting Privy user...")
+        val user = privyAuthService.getUser()
+        Timber.d("[AutoSell] Privy user result: ${if (user != null) "USER EXISTS (id=${user.id})" else "NULL - SESSION NOT ACTIVE"}")
+        if (user == null) {
+            Timber.w("[AutoSell] ❌ USER IS NULL - Privy session not active in background! Will retry later.")
+            purchaseDao.updateStatus(txHash, PurchaseStatus.HELD)
+            return Result.retry() // Retry later when user opens app
         }
 
-        val routeResult = swapRepository.getRoutes(
-            chain = chain.chainName,
-            tokenIn = purchase.tokenAddress,
-            tokenOut = purchase.stablecoinAddress,
-            amountIn = amountToSell
+        Timber.d("[AutoSell] Step 8: Getting wallet from user...")
+        val wallet = user.embeddedEthereumWallets.firstOrNull()
+        if (wallet == null) {
+            Timber.e("[AutoSell] ❌ No wallet found for user")
+            purchaseDao.updateStatus(txHash, PurchaseStatus.HELD)
+            return Result.failure() // Unrecoverable
+        }
+
+        // Step 8: Query ACTUAL wallet balance (instead of using stored amountOut)
+        // This is critical because the actual received amount may differ from quote due to slippage
+        Timber.d("[AutoSell] Step 8: Querying balance - wallet=$walletAddress, token=${purchase.tokenAddress}, decimals=${purchase.tokenDecimals}, chain=${chain.chainName}")
+        val balanceResult = balanceRepository.getTokenBalance(
+            walletAddress = walletAddress,
+            tokenAddress = purchase.tokenAddress,
+            tokenDecimals = purchase.tokenDecimals,
+            network = chain
         )
 
-        if (routeResult is com.otistran.flash_trade.util.Result.Error) {
-            Timber.w("Failed to get sell route: ${routeResult.message}")
-            purchaseDao.updateStatus(txHash, PurchaseStatus.HELD) // Revert
+        if (balanceResult is com.otistran.flash_trade.util.Result.Error) {
+            Timber.w("Failed to get token balance: ${balanceResult.message}")
+            purchaseDao.updateStatus(txHash, PurchaseStatus.HELD)
             return Result.retry()
         }
 
-        val route = (routeResult as com.otistran.flash_trade.util.Result.Success<com.otistran.flash_trade.domain.model.RouteSummaryResponse>).data
-        Timber.d("Sell route: ${route.amountOut} ${purchase.stablecoinSymbol}")
+        val balance = (balanceResult as com.otistran.flash_trade.util.Result.Success).data
+        if (balance <= BigDecimal.ZERO) {
+            Timber.w("[AutoSell] ❌ Token balance is zero! Query params: wallet=$walletAddress, token=${purchase.tokenAddress}, decimals=${purchase.tokenDecimals}")
+            purchaseDao.updateStatus(txHash, PurchaseStatus.HELD)
+            return Result.retry() // Token may not have arrived yet
+        }
 
-        // Step 8: Build encoded route transaction
-        val buildResult = swapRepository.buildEncodedRoute(
-            chain = chain.chainName,
-            routeSummary = route,
-            senderAddress = walletAddress
+        // Convert decimal balance to raw (wei) for API
+        val amountToSell = balance
+            .multiply(BigDecimal.TEN.pow(purchase.tokenDecimals))
+            .toBigInteger()
+
+        Timber.d("[AutoSell] Step 9: Balance query success - actual balance=$balance, amountToSell=$amountToSell")
+
+        // Step 9: Pre-validation (unified with Swap flow)
+        Timber.d("[AutoSell] Step 9: Running PreValidationStep...")
+        val preValidationResult = preValidationStep.execute(
+            userAddress = walletAddress,
+            tokenInAddress = purchase.tokenAddress,
+            tokenInSymbol = purchase.tokenSymbol,
+            tokenOutAddress = purchase.stablecoinAddress,
+            amountIn = amountToSell,
+            chainId = chain.chainId,
+            chainName = chain.chainName
         )
 
-        if (buildResult is com.otistran.flash_trade.util.Result.Error) {
-            Timber.w("Failed to build sell route: ${buildResult.message}")
-            purchaseDao.updateStatus(txHash, PurchaseStatus.HELD) // Revert
+        if (preValidationResult is com.otistran.flash_trade.util.Result.Error) {
+            Timber.w("[AutoSell] Pre-validation failed: ${preValidationResult.message}")
+            purchaseDao.updateStatus(txHash, PurchaseStatus.HELD)
             return Result.retry()
         }
 
-        return Result.success()
-    }
+        val route = (preValidationResult as com.otistran.flash_trade.util.Result.Success).data.routeSummary
+        Timber.d("[AutoSell] Step 10: Route obtained - output=${route.amountOut} ${purchase.stablecoinSymbol}")
 
-    private fun String.toBigIntegerOrNull(): BigInteger? {
-        return try {
-            BigInteger(this)
-        } catch (e: Exception) {
-            null
+        // Step 11: Execute swap via shared use case
+        val executeResult = executeSwapUseCase(
+            ExecuteSwapParams(
+                tokenIn = TokenInfo(
+                    address = purchase.tokenAddress,
+                    symbol = purchase.tokenSymbol
+                ),
+                tokenOut = TokenInfo(
+                    address = purchase.stablecoinAddress,
+                    symbol = purchase.stablecoinSymbol
+                ),
+                routeSummary = route,
+                amountIn = amountToSell,
+                userAddress = walletAddress,
+                wallet = wallet,
+                chainId = chain.chainId,
+                chainName = chain.chainName,
+                slippageBps = AUTO_SELL_SLIPPAGE_BPS
+            )
+        )
+
+        // Step 12: Handle result
+        return when (executeResult) {
+            is ExecuteSwapResult.Success -> {
+                Timber.i("[AutoSell] ✅ SUCCESS! Sell tx: ${executeResult.txHash}")
+                Timber.d("[AutoSell] Updating DB: txHash=$txHash -> SOLD, sellTxHash=${executeResult.txHash}")
+                purchaseDao.updateSold(txHash, PurchaseStatus.SOLD, executeResult.txHash)
+                Timber.d("[AutoSell] DB update complete for $txHash")
+                // Trigger portfolio refresh so user sees updated balances
+                appEventBus.triggerRefreshPortfolio()
+                Result.success()
+            }
+            is ExecuteSwapResult.Pending -> {
+                // TX submitted but receipt not confirmed yet - still mark as SOLD
+                purchaseDao.updateSold(txHash, PurchaseStatus.SOLD, executeResult.txHash)
+                Timber.i("Auto-sell submitted (pending receipt): ${executeResult.txHash}")
+                // Trigger portfolio refresh so user sees updated balances
+                appEventBus.triggerRefreshPortfolio()
+                Result.success()
+            }
+            is ExecuteSwapResult.Reverted -> {
+                Timber.e("[AutoSell] ❌ Transaction REVERTED - will retry with new route")
+                purchaseDao.updateStatus(txHash, PurchaseStatus.RETRYING)
+                Result.retry() // Retry with new route
+            }
+            is ExecuteSwapResult.Error -> {
+                Timber.w("[AutoSell] ❌ Execution failed: ${executeResult.message}")
+                purchaseDao.updateStatus(txHash, PurchaseStatus.RETRYING)
+                Result.retry()
+            }
         }
     }
 }

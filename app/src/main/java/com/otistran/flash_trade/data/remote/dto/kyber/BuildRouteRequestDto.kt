@@ -11,6 +11,8 @@ data class BuildRouteRequestDto(
     val sender: String,
     @Json(name = "recipient")
     val recipient: String,
+    @Json(name = "slippageTolerance")
+    val slippageTolerance: Int, // Basis points (50 = 0.5%)
     @Json(name = "permit")
     val permit: String? = null,
     @Json(name = "deadline")

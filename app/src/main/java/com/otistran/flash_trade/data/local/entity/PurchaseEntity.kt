@@ -8,8 +8,10 @@ enum class PurchaseStatus {
     PENDING,    // Tx submitted, awaiting confirmation
     HELD,       // Confirmed, awaiting auto-sell
     SELLING,    // Auto-sell in progress
+    RETRYING,   // Auto-sell failed, waiting to retry
     SOLD,       // Successfully sold
-    CANCELLED   // User cancelled auto-sell
+    CANCELLED,  // User cancelled auto-sell
+    FAILED      // Auto-sell failed after max retries
 }
 
 @Entity(
@@ -25,6 +27,7 @@ data class PurchaseEntity(
     val tokenAddress: String,
     val tokenSymbol: String,
     val tokenName: String,
+    val tokenDecimals: Int = 18,     // Token decimals for balance queries
     val stablecoinAddress: String,
     val stablecoinSymbol: String,
     val amountIn: String,           // Stablecoin amount (raw)

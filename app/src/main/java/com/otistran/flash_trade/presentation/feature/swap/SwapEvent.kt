@@ -30,6 +30,7 @@ sealed interface SwapEvent : UiEvent {
 
     // Actions
     data object ExecuteSwap : SwapEvent
+    data object RefreshBalances : SwapEvent
     data object RefreshQuote : SwapEvent
 
     // Navigation

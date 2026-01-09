@@ -5,10 +5,8 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Transaction
 import androidx.room.Upsert
 import com.otistran.flash_trade.data.local.entity.TokenEntity
-import com.otistran.flash_trade.data.local.entity.TokenRemoteKeysEntity
 
 /**
  * DAO for token operations with Paging 3 support.
@@ -77,7 +75,6 @@ interface TokenDao {
 
     /**
      * Upsert tokens - insert or update if exists.
-     * Used by background sync.
      */
     @Upsert
     suspend fun upsertTokens(tokens: List<TokenEntity>)
@@ -88,19 +85,8 @@ interface TokenDao {
     @Query("SELECT COUNT(*) FROM tokens")
     suspend fun getTokenCount(): Int
 
-    // ==================== Sync Queries ====================
+    // ==================== Filter Count Queries ====================
 
-    /**
-     * Delete tokens not seen in the current sync generation.
-     * Returns number of deleted rows.
-     */
-    @Query("DELETE FROM tokens WHERE sync_generation < :minGeneration")
-    suspend fun deleteStaleTokens(minGeneration: Int): Int
-
-    /**
-     * Count tokens matching a specific filter.
-     * Used to check if we have enough tokens after filtering.
-     */
     @Query("""
         SELECT COUNT(*) FROM tokens 
         WHERE is_verified = 1 
@@ -115,30 +101,4 @@ interface TokenDao {
 
     @Query("SELECT COUNT(*) FROM tokens WHERE is_honeypot = 0")
     suspend fun countNonHoneypotTokens(): Int
-
-    /**
-     * Get tokens older than TTL threshold.
-     */
-    @Query("SELECT * FROM tokens WHERE cached_at < :threshold LIMIT 1")
-    suspend fun getStaleToken(threshold: Long): TokenEntity?
-
-    // ==================== Remote Keys ====================
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertRemoteKeys(keys: List<TokenRemoteKeysEntity>)
-
-    @Query("SELECT * FROM token_remote_keys WHERE token_address = :tokenAddress")
-    suspend fun getRemoteKeyByTokenAddress(tokenAddress: String): TokenRemoteKeysEntity?
-
-    @Query("DELETE FROM token_remote_keys")
-    suspend fun clearRemoteKeys()
-
-    @Query("SELECT created_at FROM token_remote_keys ORDER BY created_at ASC LIMIT 1")
-    suspend fun getOldestKeyCreationTime(): Long?
-
-    @Transaction
-    suspend fun clearAll() {
-        clearTokens()
-        clearRemoteKeys()
-    }
 }

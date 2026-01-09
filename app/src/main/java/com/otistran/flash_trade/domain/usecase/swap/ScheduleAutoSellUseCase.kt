@@ -9,23 +9,31 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.otistran.flash_trade.data.work.AutoSellWorker
 import com.otistran.flash_trade.domain.repository.PurchaseRepository
+import com.otistran.flash_trade.domain.repository.SettingsRepository
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
-private const val AUTO_SELL_DELAY_HOURS = 24L
-
 /**
  * Schedule auto-sell worker for a purchase.
+ * Reads duration from user settings.
  */
 class ScheduleAutoSellUseCase @Inject constructor(
     private val workManager: WorkManager,
-    private val purchaseRepository: PurchaseRepository
+    private val purchaseRepository: PurchaseRepository,
+    private val settingsRepository: SettingsRepository
 ) {
 
-    suspend operator fun invoke(txHash: String): String {
+    /**
+     * Schedule auto-sell with duration from settings.
+     * @param txHash Purchase transaction hash
+     * @param delayMinutes Optional override for delay (0 = immediate for retry)
+     */
+    suspend operator fun invoke(txHash: String, delayMinutes: Int? = null): String {
+        val duration = delayMinutes ?: settingsRepository.getAutoSellDurationMinutes()
+        
         val workRequest = OneTimeWorkRequestBuilder<AutoSellWorker>()
-            .setInitialDelay(AUTO_SELL_DELAY_HOURS, TimeUnit.HOURS)
+            .setInitialDelay(duration.toLong(), TimeUnit.MINUTES)
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -53,7 +61,7 @@ class ScheduleAutoSellUseCase @Inject constructor(
         // Update purchase with worker ID
         purchaseRepository.updateWorkerId(txHash, workerId)
 
-        Timber.i("Scheduled auto-sell for $txHash, workerId=$workerId")
+        Timber.i("Scheduled auto-sell for $txHash in ${duration}min, workerId=$workerId")
         return workerId
     }
 }

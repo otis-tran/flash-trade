@@ -11,15 +11,27 @@ import javax.inject.Inject
  */
 class AlchemyPortfolioMapper @Inject constructor() {
 
+    companion object {
+        /** ETH logo from Kyber assets */
+        private const val NATIVE_ETH_LOGO = "https://storage.googleapis.com/ks-setting-1d682dca/8fca1ea5-2637-48bc-bb08-c734065442fe1693634037115.png"
+    }
+
     /**
      * Map TokenBalanceDto to TokenHolding.
      * Computes balance and balanceUsd from raw values.
+     * Handles native token (ETH) when tokenAddress is null.
      */
     fun mapToTokenHolding(dto: TokenBalanceDto, index: Int): TokenHolding {
         val metadata = dto.tokenMetadata
-        val rawBalance = parseBalance(dto.tokenBalance)
-        val decimals = metadata?.decimals ?: 18
+        val isNativeToken = dto.tokenAddress == null
 
+        // Native token detection - use ETH defaults
+        val symbol = if (isNativeToken) "ETH" else metadata?.symbol ?: shortenAddress(dto.tokenAddress)
+        val name = if (isNativeToken) "Ethereum" else metadata?.name ?: "Unknown Token"
+        val decimals = if (isNativeToken) 18 else metadata?.decimals ?: 18
+        val logo = if (isNativeToken) NATIVE_ETH_LOGO else metadata?.logo
+
+        val rawBalance = parseBalance(dto.tokenBalance)
         val balance = rawBalance.divide(
             BigDecimal.TEN.pow(decimals),
             decimals.coerceAtMost(8),
@@ -34,11 +46,11 @@ class AlchemyPortfolioMapper @Inject constructor() {
 
         return TokenHolding(
             id = index,
-            symbol = metadata?.symbol ?: shortenAddress(dto.tokenAddress),
-            name = metadata?.name ?: "Unknown Token",
+            symbol = symbol,
+            name = name,
             balance = balance,
             priceUsd = priceUsd,
-            iconUrl = metadata?.logo,
+            iconUrl = logo,
             address = dto.tokenAddress
         )
     }

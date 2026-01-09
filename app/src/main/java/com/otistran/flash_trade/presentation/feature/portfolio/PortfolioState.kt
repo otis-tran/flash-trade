@@ -20,9 +20,6 @@ data class PortfolioState(
     // Tokens
     val tokens: List<TokenHolding> = emptyList(),
 
-    // Asset tab selection
-    val selectedAssetTab: AssetTab = AssetTab.TOKEN,
-
     // Network - observe from Settings (read-only)
     val currentNetwork: NetworkMode = NetworkMode.ETHEREUM,
 
@@ -65,7 +62,8 @@ data class TokenHolding(
     val balance: Double,
     val priceUsd: BigDecimal? = null,
     val iconUrl: String? = null,
-    val address: String? = null // null is ETH native token
+    val address: String? = null, // null is ETH native token
+    val autoSellTime: Long? = null // Unix millis when auto-sell triggers
 ) {
     // Value = balance × price
     val valueUsd: BigDecimal?
@@ -91,12 +89,10 @@ data class TokenHolding(
 
     val hasPrice: Boolean
         get() = priceUsd != null
-}
 
-/**
- * Tab selection for Home screen assets view.
- */
-enum class AssetTab(val label: String) {
-    TOKEN("Token"),
-    NFT("NFT")
+    val hasAutoSell: Boolean
+        get() = autoSellTime != null && autoSellTime > System.currentTimeMillis()
+
+    val autoSellRemainingMs: Long
+        get() = (autoSellTime ?: 0) - System.currentTimeMillis()
 }

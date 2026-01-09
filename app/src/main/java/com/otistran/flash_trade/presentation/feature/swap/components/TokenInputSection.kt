@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.otistran.flash_trade.presentation.components.TokenLogo
 import com.otistran.flash_trade.presentation.feature.swap.SwapToken
 import com.otistran.flash_trade.ui.theme.KyberTeal
+import java.math.BigDecimal
 
 /**
  * Token input section with amount field, token selector, and balance display.
@@ -50,6 +51,7 @@ fun TokenInputSection(
     tokenPrice: Double = 0.0,
     isLoading: Boolean,
     readOnly: Boolean = false,
+    maxSwapAmount: BigDecimal? = null,
     onAmountChange: (String) -> Unit,
     onTokenClick: () -> Unit
 ) {
@@ -130,7 +132,10 @@ fun TokenInputSection(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     TextButton(
-                        onClick = { onAmountChange(token.balance.toPlainString()) },
+                        onClick = {
+                            val maxAmount = maxSwapAmount ?: token.balance
+                            onAmountChange(maxAmount.toPlainString())
+                        },
                         contentPadding = ButtonDefaults.TextButtonContentPadding
                     ) {
                         Text(

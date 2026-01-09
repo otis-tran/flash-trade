@@ -5,20 +5,60 @@ import com.otistran.flash_trade.core.base.UiState
 import com.otistran.flash_trade.domain.model.NetworkMode
 
 /**
+ * Tab selection for Activity screen.
+ */
+enum class ActivityTab {
+    ALL,
+    AUTO_SELL
+}
+
+/**
+ * Auto-sell history record.
+ */
+@Stable
+data class AutoSellRecord(
+    val tokenName: String,
+    val tokenSymbol: String,
+    val purchaseAmount: String,
+    val sellAmount: String?,
+    val purchaseTime: Long,
+    val sellTime: Long?,
+    val status: String,  // HELD, SELLING, SOLD, CANCELLED, FAILED
+    val buyTxHash: String,
+    val sellTxHash: String?,
+    val autoSellTime: Long = 0L
+) {
+    val hasActiveCountdown: Boolean
+        get() = status in listOf("HELD", "SELLING", "RETRYING") && autoSellTime > System.currentTimeMillis()
+    
+    val remainingMs: Long
+        get() = (autoSellTime - System.currentTimeMillis()).coerceAtLeast(0)
+    
+    val canRetry: Boolean
+        get() = status in listOf("HELD", "FAILED", "RETRYING")
+}
+
+/**
  * Activity screen state - displays transaction history.
- * Extracted from PortfolioScreen for dedicated Activity tab.
  */
 @Stable
 data class ActivityState(
-    val isLoading: Boolean = true,
+    val isLoading: Boolean = false,
+    val isLoadingTransactions: Boolean = false,
     val isRefreshing: Boolean = false,
     val walletAddress: String? = null,
 
-    // Transaction History
+    // Tab selection
+    val selectedTab: ActivityTab = ActivityTab.ALL,
+
+    // Transaction History (All tab)
     val transactions: List<Transaction> = emptyList(),
     val isLoadingMore: Boolean = false,
     val currentPage: Int = 1,
     val hasMoreTransactions: Boolean = true,
+
+    // Auto-sell history (Auto Sell tab) - loads from local DB, very fast
+    val autoSellHistory: List<AutoSellRecord> = emptyList(),
 
     // Network - observe from Settings (read-only)
     val currentNetwork: NetworkMode = NetworkMode.ETHEREUM,
@@ -31,7 +71,7 @@ data class ActivityState(
         get() = !walletAddress.isNullOrBlank()
 
     val canRefresh: Boolean
-        get() = !isLoading && !isRefreshing
+        get() = !isLoadingTransactions && !isRefreshing
 
     val groupedTransactions: Map<String, List<Transaction>>
         get() = transactions.groupBy { it.dateGroup }

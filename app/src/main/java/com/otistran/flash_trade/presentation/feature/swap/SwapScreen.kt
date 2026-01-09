@@ -35,7 +35,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.otistran.flash_trade.presentation.feature.swap.components.QuoteCountdownIndicator
 import com.otistran.flash_trade.presentation.feature.swap.components.QuoteDetailsBox
@@ -61,6 +64,14 @@ fun SwapScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val tokens = viewModel.tokensFlow.collectAsLazyPagingItems()
     val context = LocalContext.current
+
+    // Refresh balances when screen becomes visible (e.g., after returning from tx details)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.onEvent(SwapEvent.RefreshBalances)
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -101,6 +112,7 @@ fun SwapScreen(
                 amountUsd = state.sellAmountUsd,
                 tokenPrice = state.sellTokenPrice,
                 isLoading = false,
+                maxSwapAmount = state.maxSwapAmount,
                 onAmountChange = { viewModel.onEvent(SwapEvent.SetSellAmount(it)) },
                 onTokenClick = { viewModel.onEvent(SwapEvent.OpenSellTokenSelector) }
             )
@@ -179,7 +191,9 @@ fun SwapScreen(
         searchQuery = state.tokenSearchQuery,
         onSearchQueryChange = { viewModel.onEvent(SwapEvent.SearchTokens(it)) },
         onTokenSelected = { token ->
+            timber.log.Timber.d("SwapScreen: Token selected from list - symbol=${token.symbol} address=${token.address} decimals=${token.decimals}")
             val swapToken = token.toSwapToken()
+            timber.log.Timber.d("SwapScreen: Converted to SwapToken - symbol=${swapToken.symbol} address=${swapToken.address} decimals=${swapToken.decimals}")
             if (state.isSelectingSellToken) {
                 viewModel.onEvent(SwapEvent.SelectSellToken(swapToken))
             } else {

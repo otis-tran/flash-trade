@@ -202,6 +202,12 @@ class PrivyAuthService @Inject constructor() {
             val request = EthereumRpcRequest.ethSendTransaction(transactionJson)
             val result = wallet.provider.request(request)
 
+            // Debug: Log raw result to understand structure
+            Timber.d("[PrivySign] Raw result: $result")
+            Timber.d("[PrivySign] Result success: ${result.isSuccess}, failure: ${result.isFailure}")
+            Timber.d("[PrivySign] Result data type: ${result.getOrNull()?.data?.javaClass?.name}")
+            Timber.d("[PrivySign] Result data value: ${result.getOrNull()?.data}")
+
             // Get transaction hash from result
             val txHash = result.getOrNull()?.data as? String
 
@@ -210,7 +216,7 @@ class PrivyAuthService @Inject constructor() {
                 Result.success(txHash)
             } else {
                 val error = result.exceptionOrNull()
-                Timber.e("Failed to sign transaction: ${error?.message}", error)
+                Timber.e("[PrivySign] Failed - error: ${error?.message}, data: ${result.getOrNull()?.data}")
                 Result.failure(error ?: Exception("Failed to sign transaction"))
             }
         } catch (e: Exception) {

@@ -14,6 +14,10 @@ sealed class SettingsEvent : UiEvent {
     // Theme
     data class ChangeThemeMode(val mode: ThemeMode) : SettingsEvent()
 
+    // Auto-Sell
+    data class SetAutoSellEnabled(val enabled: Boolean) : SettingsEvent()
+    data class SetAutoSellDuration(val minutes: Int) : SettingsEvent()
+
     // Logout
     data object RequestLogout : SettingsEvent()
     data object ConfirmLogout : SettingsEvent()

@@ -25,6 +25,13 @@ interface PurchaseDao {
 
     @Query("SELECT * FROM purchases ORDER BY purchaseTime DESC")
     fun observeAll(): Flow<List<PurchaseEntity>>
+    
+    // Wallet address filtered queries for multi-user support
+    @Query("SELECT * FROM purchases WHERE walletAddress = :walletAddress ORDER BY purchaseTime DESC")
+    fun observeAllByWallet(walletAddress: String): Flow<List<PurchaseEntity>>
+    
+    @Query("SELECT * FROM purchases WHERE walletAddress = :walletAddress AND status IN (:statuses) ORDER BY purchaseTime DESC")
+    fun observeByStatusesAndWallet(statuses: List<PurchaseStatus>, walletAddress: String): Flow<List<PurchaseEntity>>
 
     @Query("SELECT * FROM purchases WHERE status = 'HELD' AND autoSellTime <= :currentTime")
     suspend fun getPendingAutoSells(currentTime: Long): List<PurchaseEntity>

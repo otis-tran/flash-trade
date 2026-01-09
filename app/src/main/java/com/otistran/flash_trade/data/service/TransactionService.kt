@@ -1,7 +1,5 @@
 package com.otistran.flash_trade.data.service
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import com.otistran.flash_trade.domain.model.NetworkMode
 import io.privy.wallet.ethereum.EmbeddedEthereumWallet
 import io.privy.wallet.ethereum.EthereumRpcRequest
@@ -89,12 +87,27 @@ class TransactionService @Inject constructor(
             }
         }.toString()
 
-        Timber.d("Sending tx: to=$to, chainId=$chainId, value=$value")
+        Timber.d("Sending tx: to=$to, chainId=$chainId, value=$value, gas=$gas")
 
         val request = EthereumRpcRequest.ethSendTransaction(txJson)
         val result = wallet.provider.request(request)
 
-        return result.getOrNull() as? String
+        // Log full result for debugging
+        val rawValue = result.getOrNull()
+        Timber.d("Privy wallet.provider.request result: isSuccess=${result.isSuccess}, rawValue=$rawValue, type=${rawValue?.javaClass?.simpleName}")
+        if (result.isFailure) {
+            Timber.e("Privy tx failed: ${result.exceptionOrNull()?.message}", result.exceptionOrNull())
+        }
+
+        // Handle different return types
+        return when (rawValue) {
+            is String -> rawValue
+            null -> null
+            else -> {
+                Timber.w("Unexpected Privy response type: ${rawValue.javaClass.name}, converting to string: $rawValue")
+                rawValue.toString()
+            }
+        }
     }
 
     suspend fun sendApproval(
@@ -205,8 +218,7 @@ class TransactionService @Inject constructor(
     }
 
     companion object {
-        @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-        val MAX_UINT256: BigInteger = BigInteger.TWO.pow(256).subtract(BigInteger.ONE)
+        val MAX_UINT256: BigInteger = BigInteger.valueOf(2).pow(256).subtract(BigInteger.ONE)
 
         const val NATIVE_TOKEN_ADDRESS = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
         private const val ERC20_ALLOWANCE_SELECTOR = "0xdd62ed3e"

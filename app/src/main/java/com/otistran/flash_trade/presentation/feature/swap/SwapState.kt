@@ -2,6 +2,7 @@ package com.otistran.flash_trade.presentation.feature.swap
 
 import androidx.compose.runtime.Stable
 import com.otistran.flash_trade.core.base.UiState
+import com.otistran.flash_trade.core.util.TokenConstants
 import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.model.PriceImpactLevel
 import com.otistran.flash_trade.domain.model.SwapQuote
@@ -43,7 +44,7 @@ data class SwapState(
     val isQuoteStale: Boolean = false,
 
     // Slippage
-    val slippage: Double = 0.5, // Default 0.5%
+    val slippage: Double = 5.0, // Default 5% for volatile meme tokens
     val showSlippageDialog: Boolean = false,
 
     // UI State
@@ -98,11 +99,24 @@ data class SwapState(
                 hasValidQuote &&
                 !insufficientBalance
 
+    /**
+     * Maximum amount that can be swapped.
+     * For native tokens (ETH), limit to 80% to reserve gas.
+     */
+    val maxSwapAmount: BigDecimal
+        get() {
+            val balance = sellToken?.balance ?: BigDecimal.ZERO
+            return if (TokenConstants.isNativeToken(sellToken?.address ?: "")) {
+                balance.multiply(BigDecimal.valueOf(TokenConstants.NATIVE_TOKEN_MAX_SWAP_PERCENTAGE))
+            } else {
+                balance
+            }
+        }
+
     val insufficientBalance: Boolean
         get() {
             val sellAmt = sellAmount.toBigDecimalOrNull() ?: return false
-            val balance = sellToken?.balance ?: return false
-            return sellAmt > balance
+            return sellAmt > maxSwapAmount
         }
 
     val ctaButtonText: String
@@ -112,6 +126,7 @@ data class SwapState(
             sellToken == null -> "Select token to sell"
             buyToken == null -> "Select token to buy"
             !hasValidSellAmount -> "Enter amount"
+            insufficientBalance && TokenConstants.isNativeToken(sellToken.address) -> "Max 80% for gas"
             insufficientBalance -> "Insufficient balance"
             else -> "Swap"
         }

@@ -1,22 +1,23 @@
 package com.otistran.flash_trade
 
 import android.app.Application
-import com.otistran.flash_trade.domain.sync.TokenSyncManager
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import com.otistran.flash_trade.data.work.TokenPrefetchWorker
 import dagger.hilt.android.HiltAndroidApp
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
 @HiltAndroidApp
-class FlashTradeApplication : Application() {
+class FlashTradeApplication : Application(), Configuration.Provider {
 
     @Inject
-    lateinit var tokenSyncManager: TokenSyncManager
-
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    lateinit var workerFactory: HiltWorkerFactory
 
     override fun onCreate() {
         super.onCreate()
@@ -26,9 +27,31 @@ class FlashTradeApplication : Application() {
             Timber.plant(Timber.DebugTree())
         }
 
-        // Start background sync on app launch
-        applicationScope.launch {
-            tokenSyncManager.checkAndStartSync()
-        }
+        // Schedule token prefetch in background (survives app lifecycle)
+        scheduleTokenPrefetch()
     }
+
+    private fun scheduleTokenPrefetch() {
+        Timber.d("[App] Scheduling token prefetch")
+        
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val prefetchRequest = OneTimeWorkRequestBuilder<TokenPrefetchWorker>()
+            .setConstraints(constraints)
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniqueWork(
+            TokenPrefetchWorker.WORK_NAME,
+            ExistingWorkPolicy.KEEP,  // Don't restart if already running/completed
+            prefetchRequest
+        )
+    }
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .setMinimumLoggingLevel(if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.INFO)
+            .build()
 }
