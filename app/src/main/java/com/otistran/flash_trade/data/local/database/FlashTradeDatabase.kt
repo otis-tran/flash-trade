@@ -8,7 +8,6 @@ import com.otistran.flash_trade.data.local.database.dao.PurchaseDao
 import com.otistran.flash_trade.data.local.database.dao.TokenDao
 import com.otistran.flash_trade.data.local.entity.PurchaseEntity
 import com.otistran.flash_trade.data.local.entity.TokenEntity
-import com.otistran.flash_trade.data.local.entity.TokenRemoteKeysEntity
 
 /**
  * Room database for Flash Trade app.
@@ -17,10 +16,9 @@ import com.otistran.flash_trade.data.local.entity.TokenRemoteKeysEntity
 @Database(
     entities = [
         TokenEntity::class,
-        TokenRemoteKeysEntity::class,
         PurchaseEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(PurchaseStatusConverter::class)

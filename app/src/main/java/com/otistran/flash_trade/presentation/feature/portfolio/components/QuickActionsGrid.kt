@@ -14,7 +14,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.automirrored.filled.CallReceived
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,7 +30,7 @@ import com.otistran.flash_trade.presentation.feature.portfolio.PortfolioEvent
 import com.otistran.flash_trade.ui.theme.KyberTeal
 
 /**
- * Quick actions grid with Buy, Swap, Send, Receive buttons.
+ * Quick actions grid with Swap, Send, Receive buttons.
  */
 @Composable
 fun QuickActionsGrid(
@@ -41,11 +40,6 @@ fun QuickActionsGrid(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        QuickActionButton(
-            icon = Icons.Default.ShoppingCart,
-            label = "Buy",
-            onClick = { onEvent(PortfolioEvent.OnBuyClick) }
-        )
         QuickActionButton(
             icon = Icons.Default.SwapHoriz,
             label = "Swap",

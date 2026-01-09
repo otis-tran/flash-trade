@@ -130,6 +130,7 @@ class SwapRepositoryImpl @Inject constructor(
         chain: String,
         routeSummary: RouteSummaryResponse,
         senderAddress: String,
+        slippageTolerance: Int,
         recipientAddress: String?,
         permit: String?,
         deadline: Long?
@@ -138,6 +139,7 @@ class SwapRepositoryImpl @Inject constructor(
             val request = routeSummary.toRequest(
                 sender = senderAddress,
                 receipt = recipientAddress ?: senderAddress,
+                slippageTolerance = slippageTolerance,
                 permit = permit,
                 deadline = deadline
             )
@@ -203,10 +205,17 @@ class SwapRepositoryImpl @Inject constructor(
 
             Timber.d("Gas limit: original=$gas, adjusted=$gasLimit (multiplier=$GAS_MULTIPLIER)")
 
+            // Convert transaction value to hex (Privy requires hex format)
+            val valueHex = if (value.isNullOrBlank() || value == "0") {
+                "0x0"
+            } else {
+                "0x${BigInteger(value).toString(16)}"
+            }
+
             val signResult = privyAuthService.signTransaction(
                 wallet = wallet,
                 to = to,
-                value = value,
+                value = valueHex,
                 chainId = chainId,
                 data = data,
                 gasLimit = "0x${gasLimit.toString(16)}",

@@ -15,9 +15,6 @@ import kotlinx.serialization.Serializable
 // Auth Flow (no bottom nav)
 // =============================================================================
 @Serializable
-object Welcome
-
-@Serializable
 object Login
 
 // =============================================================================

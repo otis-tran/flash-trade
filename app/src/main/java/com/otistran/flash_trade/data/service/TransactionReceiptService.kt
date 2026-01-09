@@ -34,37 +34,54 @@ class TransactionReceiptService @Inject constructor() {
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * Wait for transaction receipt by polling RPC endpoint.
+     * Wait for transaction receipt with exponential backoff.
      *
      * @param txHash Transaction hash (0x-prefixed)
      * @param chainId Chain ID for RPC URL lookup
-     * @param maxAttempts Maximum polling attempts (default 30)
-     * @param delayMs Delay between polls in ms (default 2000)
+     * @param maxWaitMs Maximum total wait time (default 30s)
+     * @param initialDelayMs Initial delay between polls (default 1s)
+     * @param maxDelayMs Maximum delay cap (default 8s)
      * @return TransactionReceipt if found, null if timeout
      */
     suspend fun waitForReceipt(
         txHash: String,
         chainId: Long,
-        maxAttempts: Int = 30,
-        delayMs: Long = 2000L
+        maxWaitMs: Long = 30_000L,
+        initialDelayMs: Long = 1_000L,
+        maxDelayMs: Long = 8_000L
     ): TransactionReceipt? = withContext(Dispatchers.IO) {
-        Timber.d("Waiting for receipt: $txHash on chain $chainId")
+        Timber.d("Waiting for receipt: $txHash on chain $chainId (maxWait=${maxWaitMs}ms)")
 
         val rpcUrl = NetworkMode.fromChainId(chainId).rpcUrl
+        val startTime = System.currentTimeMillis()
+        var currentDelay = initialDelayMs
+        var attemptCount = 0
 
-        repeat(maxAttempts) { attempt ->
+        while (System.currentTimeMillis() - startTime < maxWaitMs) {
+            attemptCount++
             val receipt = getTransactionReceipt(txHash, rpcUrl)
 
             if (receipt != null) {
-                Timber.i("Receipt found at attempt ${attempt + 1}: status=${receipt.status}")
+                val elapsed = System.currentTimeMillis() - startTime
+                Timber.i("Receipt found at attempt $attemptCount in ${elapsed}ms: status=${receipt.status}")
                 return@withContext receipt
             }
 
-            Timber.d("Attempt ${attempt + 1}/$maxAttempts: receipt not yet available")
-            delay(delayMs)
+            val elapsed = System.currentTimeMillis() - startTime
+            val remainingTime = maxWaitMs - elapsed
+            val actualDelay = minOf(currentDelay, remainingTime)
+
+            if (actualDelay <= 0) break
+
+            Timber.d("Attempt $attemptCount: no receipt, waiting ${actualDelay}ms (elapsed: ${elapsed}ms)")
+            delay(actualDelay)
+
+            // Exponential backoff with cap
+            currentDelay = minOf(currentDelay * 2, maxDelayMs)
         }
 
-        Timber.w("Timeout waiting for receipt after $maxAttempts attempts")
+        val totalElapsed = System.currentTimeMillis() - startTime
+        Timber.w("Timeout waiting for receipt after $attemptCount attempts (${totalElapsed}ms)")
         null
     }
 

@@ -32,6 +32,7 @@ interface SwapRepository {
         chain: String,
         routeSummary: RouteSummaryResponse,
         senderAddress: String,
+        slippageTolerance: Int,
         recipientAddress: String? = null,
         permit: String? = null,
         deadline: Long? = null

@@ -216,8 +216,8 @@ dependencies {
     // Data Storage
     implementation(libs.androidx.datastore.preferences)
 
-    // Biometric
-    implementation(libs.androidx.biometric)
+    // Biometric - commented out, not implemented
+    // implementation(libs.androidx.biometric)
 
     // Splash Screen (backward compatible API)
     implementation(libs.androidx.core.splashscreen)
@@ -239,9 +239,9 @@ dependencies {
     implementation(libs.privy.core)
     implementation(libs.web3j.core)
 
-    // Credentials API for passkey
-    implementation(libs.androidx.credentials)
-    implementation(libs.androidx.credentials.play.services.auth)
+    // Credentials API for passkey - commented out, using Privy embedded wallet instead
+    // implementation(libs.androidx.credentials)
+    // implementation(libs.androidx.credentials.play.services.auth)
 
     // Serialization
     implementation(libs.kotlinx.serialization.json)
@@ -260,9 +260,9 @@ dependencies {
     implementation(libs.timber)
 
     // Firebase - Crash reporting
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.crashlytics)
-    implementation(libs.firebase.analytics)
+//    implementation(platform(libs.firebase.bom))
+//    implementation(libs.firebase.crashlytics)
+//    implementation(libs.firebase.analytics)
 
     // Camera for scanning (disabled - app only generates QR codes)
     // implementation(libs.androidx.camera.camera2)

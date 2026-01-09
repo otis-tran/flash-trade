@@ -7,6 +7,7 @@ data class Purchase(
     val tokenAddress: String,
     val tokenSymbol: String,
     val tokenName: String,
+    val tokenDecimals: Int = 18,
     val stablecoinAddress: String,
     val stablecoinSymbol: String,
     val amountIn: String,

@@ -38,6 +38,16 @@ class PurchaseRepositoryImpl @Inject constructor(
         return purchaseDao.observeAll().map { list -> list.map { it.toDomain() } }
     }
 
+    override fun observeAllPurchasesByWallet(walletAddress: String): Flow<List<Purchase>> {
+        return purchaseDao.observeAllByWallet(walletAddress).map { list -> list.map { it.toDomain() } }
+    }
+
+    override fun observeActivePurchases(): Flow<List<Purchase>> {
+        return observePurchasesByStatuses(
+            listOf(PurchaseStatus.HELD, PurchaseStatus.SELLING, PurchaseStatus.RETRYING)
+        )
+    }
+
     override suspend fun getPendingAutoSells(currentTime: Long): List<Purchase> {
         return purchaseDao.getPendingAutoSells(currentTime).map { it.toDomain() }
     }

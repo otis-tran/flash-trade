@@ -23,8 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * Logout section (danger zone).
- * Red-accented button with confirmation flow.
+ * Account section with logout button.
  */
 @Composable
 fun LogoutSection(
@@ -35,7 +34,7 @@ fun LogoutSection(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
         Column(
@@ -43,9 +42,9 @@ fun LogoutSection(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Danger Zone",
+                text = "Account",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.error
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Button(

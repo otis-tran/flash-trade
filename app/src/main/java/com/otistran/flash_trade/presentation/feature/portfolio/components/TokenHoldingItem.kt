@@ -19,6 +19,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,6 +40,7 @@ import com.otistran.flash_trade.core.ui.components.ShimmerCircle
 import com.otistran.flash_trade.core.ui.components.ShimmerLine
 import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.presentation.feature.portfolio.TokenHolding
+import kotlinx.coroutines.delay
 
 private val PriceUp = Color(0xFF00C853)
 private val PriceDown = Color(0xFFFF5252)
@@ -92,6 +98,12 @@ fun TokenHoldingItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                
+                // Auto-sell countdown display
+                if (token.hasAutoSell) {
+                    AutoSellCountdown(remainingMs = token.autoSellRemainingMs)
+                }
+                
                 Text(
                     text = "${token.formattedBalance} ${token.symbol}",
                     style = MaterialTheme.typography.bodySmall,
@@ -197,4 +209,36 @@ fun TokenHoldingItemShimmer() {
             }
         }
     }
+}
+
+/**
+ * Auto-sell countdown timer that updates every second.
+ */
+@Composable
+private fun AutoSellCountdown(remainingMs: Long) {
+    var remaining by remember { mutableLongStateOf(remainingMs) }
+
+    LaunchedEffect(remainingMs) {
+        remaining = remainingMs
+        while (remaining > 0) {
+            delay(1000)
+            remaining -= 1000
+        }
+    }
+
+    val minutes = (remaining / 60000).toInt()
+    val seconds = ((remaining % 60000) / 1000).toInt()
+    val text = if (minutes > 0) {
+        "Auto-sell in ${minutes}m ${seconds}s"
+    } else if (remaining > 0) {
+        "Auto-sell in ${seconds}s"
+    } else {
+        "Auto-sell processing..."
+    }
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.primary
+    )
 }

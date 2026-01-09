@@ -14,7 +14,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,7 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.otistran.flash_trade.core.ui.components.LoadingIndicator
 
 /**
- * Login screen with passkey and OAuth options.
+ * Login screen with Google OAuth.
  */
 @Composable
 fun LoginScreen(
@@ -113,25 +112,11 @@ private fun LoginContent(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // Passkey button (primary)
-        LoginButton(
-            text = "Continue with Passkey",
-            isLoading = state.isPasskeyLoading,
-            enabled = state.canLogin,
-            onClick = { onEvent(LoginEvent.PasskeyLogin) },
-            isPrimary = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Google OAuth button (secondary)
-        LoginButton(
-            text = "Continue with Google",
+        // Google OAuth button (primary)
+        GoogleLoginButton(
             isLoading = state.isGoogleLoading,
             enabled = state.canLogin,
             onClick = { onEvent(LoginEvent.GoogleLogin) },
-            isPrimary = false,
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -171,60 +156,34 @@ private fun ErrorCard(
 }
 
 @Composable
-private fun LoginButton(
-    text: String,
+private fun GoogleLoginButton(
     isLoading: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
-    isPrimary: Boolean,
     modifier: Modifier = Modifier
 ) {
-    if (isPrimary) {
-        Button(
-            onClick = onClick,
-            modifier = modifier.height(56.dp),
-            enabled = enabled,
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(56.dp),
+        enabled = enabled,
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        )
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                color = MaterialTheme.colorScheme.onPrimary,
+                strokeWidth = 2.dp
             )
-        ) {
-            ButtonContent(text = text, isLoading = isLoading, isPrimary = true)
+        } else {
+            Text(
+                text = "Continue with Google",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold
+            )
         }
-    } else {
-        OutlinedButton(
-            onClick = onClick,
-            modifier = modifier.height(56.dp),
-            enabled = enabled,
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            ButtonContent(text = text, isLoading = isLoading, isPrimary = false)
-        }
-    }
-}
-
-@Composable
-private fun ButtonContent(
-    text: String,
-    isLoading: Boolean,
-    isPrimary: Boolean
-) {
-    if (isLoading) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(24.dp),
-            color = if (isPrimary) {
-                MaterialTheme.colorScheme.onPrimary
-            } else {
-                MaterialTheme.colorScheme.primary
-            },
-            strokeWidth = 2.dp
-        )
-    } else {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold
-        )
     }
 }

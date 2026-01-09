@@ -3,10 +3,8 @@ package com.otistran.flash_trade.presentation.feature.portfolio.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,7 +55,7 @@ fun QRCodeView(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Receive $networkName",
+            text = "Receive Token",
             style = MaterialTheme.typography.titleLarge,
             fontSize = 20.sp
         )

@@ -1,5 +1,6 @@
 package com.otistran.flash_trade.presentation.feature.swap.manager
 
+import android.util.Log
 import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.usecase.swap.GetTokenBalancesUseCase
 import com.otistran.flash_trade.domain.usecase.swap.GetTokenPricesUseCase
@@ -8,6 +9,7 @@ import com.otistran.flash_trade.util.Result
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import java.math.BigDecimal
 
 /**
@@ -43,6 +45,7 @@ class TokenDataManager(
         network: NetworkMode,
         onResult: (TokenDataResult) -> Unit
     ) {
+        Timber.d("fetchTokenData() called with: sellToken = $sellToken, buyToken = $buyToken, network = $network, onResult = $onResult")
         coroutineScope.launch {
             val balancesDeferred = async {
                 getTokenBalancesUseCase(sellToken, buyToken, network)

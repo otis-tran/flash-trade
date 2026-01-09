@@ -99,6 +99,7 @@ fun DataWrapper.toRouteSummary(): RouteSummaryResponse {
 fun RouteSummaryResponse.toRequest(
     sender: String,
     receipt: String,
+    slippageTolerance: Int,
     permit: String? = null,
     deadline: Long? = null
 ): BuildRouteRequestDto {
@@ -181,6 +182,7 @@ fun RouteSummaryResponse.toRequest(
         ),
         sender = sender,
         recipient = receipt,
+        slippageTolerance = slippageTolerance,
         permit = permit,
         deadline = deadline
     )

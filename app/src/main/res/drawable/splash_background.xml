@@ -6,9 +6,7 @@
     <item android:drawable="@color/kyber_navy" />
 
     <!-- Centered icon layer -->
-    <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/ic_launcher" />
-    </item>
+    <item
+        android:drawable="@drawable/ic_launcher_foreground"
+        android:gravity="center" />
 </layer-list>

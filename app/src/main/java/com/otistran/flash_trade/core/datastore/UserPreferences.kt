@@ -31,6 +31,7 @@ class UserPreferences @Inject constructor(
         val BIOMETRIC_ENABLED = booleanPreferencesKey("biometric_enabled")
         val SELECTED_CHAIN_ID = intPreferencesKey("selected_chain_id")
         val AUTO_SELL_ENABLED = booleanPreferencesKey("auto_sell_enabled")
+        val AUTO_SELL_DURATION_MINUTES = intPreferencesKey("auto_sell_duration_minutes")
         val USER_ID = stringPreferencesKey("user_id")
         val WALLET_ADDRESS = stringPreferencesKey("wallet_address")
         val THEME_MODE = stringPreferencesKey("theme_mode")
@@ -57,6 +58,8 @@ class UserPreferences @Inject constructor(
     val selectedChainId: Flow<Int> = context.dataStore.data.map { it[Keys.SELECTED_CHAIN_ID] ?: 1 }
     val autoSellEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[Keys.AUTO_SELL_ENABLED] ?: true }
+    val autoSellDurationMinutes: Flow<Int> =
+        context.dataStore.data.map { it[Keys.AUTO_SELL_DURATION_MINUTES] ?: 1 }
     val userId: Flow<String?> = context.dataStore.data.map { it[Keys.USER_ID] }
     val walletAddress: Flow<String?> = context.dataStore.data.map { it[Keys.WALLET_ADDRESS] }
     val themeMode: Flow<String> = context.dataStore.data.map { it[Keys.THEME_MODE] ?: "DARK" }
@@ -123,6 +126,18 @@ class UserPreferences @Inject constructor(
         context.dataStore.edit { it[Keys.AUTO_SELL_ENABLED] = value }
     }
 
+    suspend fun setAutoSellDurationMinutes(minutes: Int) {
+        context.dataStore.edit { it[Keys.AUTO_SELL_DURATION_MINUTES] = minutes }
+    }
+
+    suspend fun getAutoSellEnabled(): Boolean {
+        return context.dataStore.data.first()[Keys.AUTO_SELL_ENABLED] ?: true
+    }
+
+    suspend fun getAutoSellDurationMinutes(): Int {
+        return context.dataStore.data.first()[Keys.AUTO_SELL_DURATION_MINUTES] ?: 1
+    }
+
     suspend fun setUserId(userId: String) {
         context.dataStore.edit { it[Keys.USER_ID] = userId }
     }
@@ -140,7 +155,7 @@ class UserPreferences @Inject constructor(
     }
 
     suspend fun getDefaultSlippage(): Double {
-        return context.dataStore.data.first()[Keys.DEFAULT_SLIPPAGE] ?: 0.5
+        return context.dataStore.data.first()[Keys.DEFAULT_SLIPPAGE] ?: 5.0 // 5% default for meme coins
     }
 
     suspend fun setDefaultSlippage(slippage: Double) {

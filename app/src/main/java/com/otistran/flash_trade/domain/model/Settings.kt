@@ -7,7 +7,8 @@ package com.otistran.flash_trade.domain.model
 data class Settings(
     val networkMode: NetworkMode = NetworkMode.ETHEREUM,
     val themeMode: ThemeMode = ThemeMode.DARK,
-    val isAutoSellEnabled: Boolean = true
+    val isAutoSellEnabled: Boolean = true,
+    val autoSellDurationMinutes: Int = 1  // Default 1 min for demo
 )
 
 /**

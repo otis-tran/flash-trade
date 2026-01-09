@@ -7,5 +7,7 @@ sealed interface ActivityEvent : UiEvent {
     data object RefreshTransactions : ActivityEvent
     data object LoadMoreTransactions : ActivityEvent
     data class OpenTransactionDetails(val txHash: String) : ActivityEvent
+    data class SelectTab(val tab: ActivityTab) : ActivityEvent
+    data class RetryAutoSell(val txHash: String) : ActivityEvent
     data object DismissError : ActivityEvent
 }

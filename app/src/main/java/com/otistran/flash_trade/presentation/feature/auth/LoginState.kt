@@ -9,7 +9,6 @@ import com.otistran.flash_trade.domain.model.User
  */
 @Stable
 data class LoginState(
-    val isPasskeyLoading: Boolean = false,
     val isGoogleLoading: Boolean = false,
     val isCheckingSession: Boolean = true,
     val error: String? = null,
@@ -19,9 +18,6 @@ data class LoginState(
     /** True if authentication succeeded. */
     val isAuthenticated: Boolean get() = user != null
 
-    /** True if any auth operation in progress. */
-    val isAnyLoading: Boolean get() = isPasskeyLoading || isGoogleLoading
-
     /** True if screen is idle and can accept login. */
-    val canLogin: Boolean get() = !isAnyLoading && !isCheckingSession
+    val canLogin: Boolean get() = !isGoogleLoading && !isCheckingSession
 }

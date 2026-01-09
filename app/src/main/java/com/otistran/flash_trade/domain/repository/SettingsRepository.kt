@@ -34,6 +34,22 @@ interface SettingsRepository {
     suspend fun setAutoSellEnabled(enabled: Boolean)
 
     /**
+     * Updates auto-sell duration.
+     * @param minutes Duration in minutes before auto-sell triggers
+     */
+    suspend fun setAutoSellDurationMinutes(minutes: Int)
+
+    /**
+     * Gets whether auto-sell is enabled.
+     */
+    suspend fun isAutoSellEnabled(): Boolean
+
+    /**
+     * Gets auto-sell duration in minutes.
+     */
+    suspend fun getAutoSellDurationMinutes(): Int
+
+    /**
      * Gets the default slippage tolerance.
      * @return Slippage percentage (e.g., 0.5 for 0.5%)
      */

@@ -10,11 +10,9 @@ import com.otistran.flash_trade.core.base.UiEvent
 sealed class PortfolioEvent : UiEvent {
     data object LoadPortfolio : PortfolioEvent()
     data object CopyWalletAddress : PortfolioEvent()
-    data class SelectAssetTab(val tab: AssetTab) : PortfolioEvent()
     data object DismissError : PortfolioEvent()
 
     // Quick Actions
-    data object OnBuyClick : PortfolioEvent()
     data object OnSwapClick : PortfolioEvent()
     data object OnSendClick : PortfolioEvent()
     data object OnReceiveClick : PortfolioEvent()

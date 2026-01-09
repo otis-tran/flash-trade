@@ -8,12 +8,6 @@ import com.otistran.flash_trade.core.base.UiEvent
  */
 @Immutable
 sealed class LoginEvent : UiEvent {
-    /** User tapped "Continue with Passkey" for login. */
-    data object PasskeyLogin : LoginEvent()
-
-    /** User tapped "Continue with Passkey" for first-time signup. */
-    data object PasskeySignup : LoginEvent()
-
     /** User tapped "Continue with Google". */
     data object GoogleLogin : LoginEvent()
 

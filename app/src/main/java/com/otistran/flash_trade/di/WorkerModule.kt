@@ -9,19 +9,13 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-/**
- * Dependency injection module for WorkManager.
- * Provides WorkManager singleton for background task scheduling.
- */
 @Module
 @InstallIn(SingletonComponent::class)
-object WorkManagerModule {
+object WorkerModule {
 
     @Provides
     @Singleton
     fun provideWorkManager(
         @ApplicationContext context: Context
-    ): WorkManager {
-        return WorkManager.getInstance(context)
-    }
+    ): WorkManager = WorkManager.getInstance(context)
 }

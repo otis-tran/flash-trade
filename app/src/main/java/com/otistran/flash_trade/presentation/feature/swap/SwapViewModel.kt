@@ -1,10 +1,14 @@
 package com.otistran.flash_trade.presentation.feature.swap
 
+import android.util.Log
+import timber.log.Timber
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.otistran.flash_trade.core.base.BaseViewModel
+import com.otistran.flash_trade.core.event.AppEventBus
 import com.otistran.flash_trade.data.service.PrivyAuthService
+import com.otistran.flash_trade.core.util.StablecoinConstants
 import com.otistran.flash_trade.domain.model.NetworkMode
 import com.otistran.flash_trade.domain.model.SwapQuote
 import com.otistran.flash_trade.domain.model.Token
@@ -12,6 +16,8 @@ import com.otistran.flash_trade.domain.repository.SettingsRepository
 import com.otistran.flash_trade.domain.usecase.swap.GetQuoteUseCase
 import com.otistran.flash_trade.domain.usecase.swap.GetTokenBalancesUseCase
 import com.otistran.flash_trade.domain.usecase.swap.GetTokenPricesUseCase
+import com.otistran.flash_trade.domain.usecase.swap.SavePurchaseUseCase
+import com.otistran.flash_trade.domain.usecase.swap.ScheduleAutoSellUseCase
 import com.otistran.flash_trade.domain.usecase.swap.SearchTokensUseCase
 import com.otistran.flash_trade.domain.usecase.swap.SwapTokenUseCase
 import com.otistran.flash_trade.presentation.feature.swap.manager.QuoteCountdownManager
@@ -26,10 +32,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import timber.log.Timber
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import java.math.RoundingMode
 import javax.inject.Inject
@@ -45,8 +53,11 @@ class SwapViewModel @Inject constructor(
     private val getQuoteUseCase: GetQuoteUseCase,
     private val searchTokensUseCase: SearchTokensUseCase,
     private val swapTokenUseCase: SwapTokenUseCase,
+    private val savePurchaseUseCase: SavePurchaseUseCase,
+    private val scheduleAutoSellUseCase: ScheduleAutoSellUseCase,
     private val settingsRepository: SettingsRepository,
-    private val privyAuthService: PrivyAuthService
+    private val privyAuthService: PrivyAuthService,
+    private val appEventBus: AppEventBus
 ) : BaseViewModel<SwapState, SwapEvent, SwapEffect>(
     initialState = SwapState()
 ) {
@@ -64,10 +75,14 @@ class SwapViewModel @Inject constructor(
 
     val tokensFlow: Flow<PagingData<Token>> = combine(
         searchQueryFlow,
-        state.map { it.showSafeTokensOnly }
-    ) { query, safeOnly -> query to safeOnly }
+        state.map { it.showSafeTokensOnly }.distinctUntilChanged()
+    ) { query, safeOnly -> 
+        Timber.d("tokensFlow: combine triggered - query='$query', safeOnly=$safeOnly")
+        query to safeOnly 
+    }
         .debounce(300)
         .flatMapLatest { (query, safeOnly) ->
+            Timber.d("tokensFlow: flatMapLatest - query='$query', safeOnly=$safeOnly, network=$currentNetwork")
             searchTokensUseCase(query, safeOnly, currentNetwork)
         }
         .cachedIn(viewModelScope)
@@ -104,6 +119,7 @@ class SwapViewModel @Inject constructor(
 
         // Amount & Quote
         is SwapEvent.SetSellAmount -> setSellAmount(event.amount)
+        SwapEvent.RefreshBalances -> refreshBalances()
         SwapEvent.RefreshQuote -> refreshQuote()
 
         // Slippage
@@ -114,8 +130,8 @@ class SwapViewModel @Inject constructor(
         // Execution
         SwapEvent.ExecuteSwap -> executeSwap()
 
-        // Navigation
-        SwapEvent.NavigateBack -> setEffect(SwapEffect.NavigateBack)
+        // Navigation - all back actions go to Home for consistency
+        SwapEvent.NavigateBack -> setEffect(SwapEffect.NavigateToHome)
         SwapEvent.Cancel -> setEffect(SwapEffect.NavigateToHome)
 
         // Error
@@ -125,6 +141,7 @@ class SwapViewModel @Inject constructor(
     // ==================== Token Selection ====================
 
     private fun openTokenSelector(isSellToken: Boolean) {
+        Timber.d("openTokenSelector: isSellToken=$isSellToken, currentNetwork=$currentNetwork")
         searchQueryFlow.value = ""
         setState {
             copy(
@@ -140,6 +157,7 @@ class SwapViewModel @Inject constructor(
     }
 
     private fun selectToken(token: SwapToken, isSellToken: Boolean) {
+        Timber.d("selectToken: ${if (isSellToken) "SELL" else "BUY"} token=${token.symbol} address=${token.address} decimals=${token.decimals}")
         countdownManager.stop()
         setState {
             if (isSellToken) {
@@ -232,9 +250,8 @@ class SwapViewModel @Inject constructor(
                     }
                 }
                 is Result.Error -> {
-                    Timber.e("Quote error: ${result.message}")
-                    setState { copy(isLoadingQuote = false) }
-                    setEffect(SwapEffect.ShowToast("Could not get quote: ${result.message}"))
+                    Timber.w("Quote error: ${result.message}")
+                    setState { copy(isLoadingQuote = false, buyAmount = "", quote = null) }
                 }
                 Result.Loading -> {}
             }
@@ -259,12 +276,14 @@ class SwapViewModel @Inject constructor(
     // ==================== Token Data (Balance & Prices) ====================
 
     private fun refreshTokenData() {
+        Timber.d("refreshTokenData() called")
         setState { copy(isPricesLoading = true) }
         tokenDataManager.fetchTokenData(
             sellToken = currentState.sellToken,
             buyToken = currentState.buyToken,
             network = currentNetwork
         ) { result ->
+            Timber.d("refreshTokenData() called with: result = $result")
             setState {
                 copy(
                     isPricesLoading = false,
@@ -324,11 +343,22 @@ class SwapViewModel @Inject constructor(
         viewModelScope.launch {
             setState { copy(isExecuting = true, error = null) }
 
-            val wallet = privyAuthService.getUser()?.embeddedEthereumWallets?.firstOrNull()
-            if (wallet == null) {
-                setState { copy(isExecuting = false, error = "Wallet not found") }
+            // Check user authentication first
+            val user = privyAuthService.getUser()
+            if (user == null) {
+                Timber.e("executeSwap: User not authenticated")
+                setState { copy(isExecuting = false, error = "Please sign in to continue") }
                 return@launch
             }
+
+            // Then check for wallet
+            val wallet = user.embeddedEthereumWallets.firstOrNull()
+            if (wallet == null) {
+                Timber.e("executeSwap: No wallet found for user ${user.id}")
+                setState { copy(isExecuting = false, error = "Wallet not ready. Please wait and retry.") }
+                return@launch
+            }
+            Timber.d("executeSwap: Using wallet ${wallet.address}")
 
             val sellToken = currentState.sellToken!!
             val buyToken = currentState.buyToken!!
@@ -336,22 +366,81 @@ class SwapViewModel @Inject constructor(
                 ?.multiply(BigDecimal.TEN.pow(sellToken.decimals))
                 ?.toBigInteger() ?: return@launch
 
-            val result = swapTokenUseCase(
-                tokenIn = sellToken,
-                tokenOut = buyToken,
-                amountIn = amountInWei,
-                userAddress = wallet.address,
-                chainId = currentNetwork.chainId,
-                chainName = currentNetwork.chainName,
-                wallet = wallet
-            )
+            // Convert slippage percentage to basis points (0.5% → 50 bps)
+            val slippageBps = (currentState.slippage * 100).toInt()
+
+            // Use NonCancellable to ensure swap completes even if user leaves screen
+            // This is critical for auto-sell scheduling to work properly
+            val result = withContext(NonCancellable) {
+                swapTokenUseCase(
+                    tokenIn = sellToken,
+                    tokenOut = buyToken,
+                    amountIn = amountInWei,
+                    userAddress = wallet.address,
+                    chainId = currentNetwork.chainId,
+                    chainName = currentNetwork.chainName,
+                    wallet = wallet,
+                    slippageBps = slippageBps
+                )
+            }
 
             when (result) {
                 is Result.Success -> {
-                    setState { copy(isExecuting = false) }
-                    setEffect(SwapEffect.ShowToast("Swap successful!"))
-                    refreshBalances()
-                    setEffect(SwapEffect.NavigateToTxDetails(result.data))
+                    val txHash = result.data
+                    
+                    // Stop countdown and clear quote to prevent continuous polling
+                    countdownManager.stop()
+                    quoteJob?.cancel()
+                    setState { copy(isExecuting = false, quote = null, sellAmount = "", buyAmount = "") }
+                    
+                    // Schedule auto-sell if enabled and not a stablecoin
+                    val isStablecoin = StablecoinConstants.isStablecoin(buyToken.address)
+                    val isAutoSellEnabled = settingsRepository.isAutoSellEnabled()
+                    
+                    if (!isStablecoin && isAutoSellEnabled) {
+                        try {
+                            // Calculate amountOut in raw (wei) from quote
+                            val amountOutRaw = currentState.quote?.amountOut
+                                ?.multiply(BigDecimal.TEN.pow(buyToken.decimals))
+                                ?.toBigInteger() ?: java.math.BigInteger.ZERO
+                            
+                            // Save purchase record
+                            savePurchaseUseCase(
+                                txHash = txHash,
+                                tokenAddress = buyToken.address,
+                                tokenSymbol = buyToken.symbol,
+                                tokenName = buyToken.name,
+                                tokenDecimals = buyToken.decimals,
+                                stablecoinAddress = sellToken.address,
+                                stablecoinSymbol = sellToken.symbol,
+                                amountIn = amountInWei,
+                                amountOut = amountOutRaw,
+                                chainId = currentNetwork.chainId,
+                                walletAddress = wallet.address
+                            )
+                            
+                            // Schedule auto-sell worker
+                            scheduleAutoSellUseCase(txHash)
+                            
+                            val duration = settingsRepository.getAutoSellDurationMinutes()
+                            appEventBus.showToast("Swap successful! Auto-sell in ${duration}m")
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to schedule auto-sell")
+                            appEventBus.showToast("Swap successful!")
+                        }
+                    } else {
+                        appEventBus.showToast("Swap successful!")
+                    }
+                    
+                    // Trigger portfolio refresh (user can navigate manually)
+                    appEventBus.triggerRefreshPortfolio()
+                    
+                    // Navigate back to home after successful swap
+                    setEffect(SwapEffect.NavigateToHome)
+                    
+                    // Delay 500ms then refresh balances to show updated portfolio
+                    delay(500)
+                    appEventBus.triggerRefreshPortfolio()
                 }
                 is Result.Error -> {
                     Timber.e("Swap failed: ${result.message}", result.cause)

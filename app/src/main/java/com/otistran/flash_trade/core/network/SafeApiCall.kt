@@ -97,23 +97,23 @@ fun Throwable.toAppException(): AppException {
         is AppException -> this
 
         // Custom no connectivity exception
-        is NoConnectivityException -> AppException.NoConnection(message ?: "Không có kết nối mạng")
+        is NoConnectivityException -> AppException.NoConnection(message ?: "No internet connection")
 
         // Network errors
         is UnknownHostException -> AppException.NoConnection(
-            "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng."
+            "Unable to connect to server. Please check your internet connection."
         )
 
         is SocketTimeoutException -> AppException.Timeout(
-            "Kết nối quá thời gian chờ. Vui lòng thử lại."
+            "Connection timeout. Please try again."
         )
 
         is SSLException -> AppException.SSLError(
-            "Lỗi bảo mật kết nối. Vui lòng kiểm tra ngày giờ thiết bị."
+            "SSL connection error. Please check your device date and time."
         )
 
         is IOException -> AppException.NoConnection(
-            message ?: "Lỗi kết nối mạng"
+            message ?: "Network connection error"
         )
 
         // HTTP errors from Retrofit
@@ -121,18 +121,18 @@ fun Throwable.toAppException(): AppException {
 
         // JSON parsing errors from Moshi
         is JsonDataException -> AppException.ParseError(
-            "Lỗi xử lý dữ liệu: ${message}",
+            "Data processing error: ${message}",
             this
         )
 
         is JsonEncodingException -> AppException.ParseError(
-            "Lỗi mã hóa dữ liệu: ${message}",
+            "Data encoding error: ${message}",
             this
         )
 
         // Unknown errors
         else -> AppException.Unknown(
-            message ?: "Đã xảy ra lỗi không xác định",
+            message ?: "An unknown error occurred",
             this
         )
     }

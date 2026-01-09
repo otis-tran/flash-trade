@@ -41,7 +41,7 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getUserAuthState(): UserAuthState {
-        // Ưu tiên đọc từ DataStore (nhanh, offline)
+        // Prefer reading from DataStore (fast, offline)
         return userPreferences.authStateFlow.first()
     }
 
@@ -199,20 +199,27 @@ class AuthRepositoryImpl @Inject constructor(
             exception.message?.contains("cancel", ignoreCase = true) == true ->
                 "Login cancelled"
 
-            exception.message?.contains("network", ignoreCase = true) == true ->
-                "Network error. Check your connection."
-
-            exception.message?.contains("timeout", ignoreCase = true) == true ->
-                "Connection timed out. Please try again."
-
+            // Network connectivity errors - more specific messaging
             exception is java.net.UnknownHostException ->
-                "Network error. Check your connection."
+                "No internet connection. Please check your network and try again."
 
             exception is java.net.SocketTimeoutException ->
-                "Connection timed out. Please try again."
+                "Connection timed out. Please check your internet and try again."
+            
+            exception is java.io.IOException ->
+                "Network error. Please check your internet connection and try again."
+
+            exception.message?.contains("network", ignoreCase = true) == true ->
+                "Network error. Please check your internet connection and try again."
+
+            exception.message?.contains("timeout", ignoreCase = true) == true ->
+                "Connection timed out. Please check your internet and try again."
+                
+            exception.message?.contains("Unable to resolve host", ignoreCase = true) == true ->
+                "No internet connection. Please check your network and try again."
 
             else ->
-                exception.message ?: "Authentication failed"
+                exception.message ?: "Authentication failed. Please try again."
         }
     }
 

@@ -43,6 +43,7 @@ import androidx.paging.compose.LazyPagingItems
 import com.otistran.flash_trade.domain.model.Token
 import com.otistran.flash_trade.presentation.components.TokenLogo
 import com.otistran.flash_trade.ui.theme.KyberTeal
+import timber.log.Timber
 
 /**
  * Bottom sheet for selecting tokens in swap.
@@ -136,9 +137,12 @@ fun TokenSelectorBottomSheet(
                 val isError = tokens.loadState.refresh is LoadState.Error
                 val isEmpty = tokens.itemCount == 0
 
+                Timber.d("TokenSelector state: isEmpty=$isEmpty, isRefreshing=$isRefreshing, isError=$isError, itemCount=${tokens.itemCount}")
+
                 when {
                     // Fresh install loading - show skeleton
                     isEmpty && isRefreshing -> {
+                        Timber.d("TokenSelector: showing skeleton (loading)")
                         TokenListSkeleton(
                             itemCount = 8,
                             modifier = Modifier
@@ -186,6 +190,8 @@ fun TokenSelectorBottomSheet(
 
                     // Normal state - show tokens immediately
                     else -> {
+                        Timber.d("Tokens count: ${tokens.itemCount}")
+                        Timber.d("Tokens: ${tokens}")
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -195,7 +201,10 @@ fun TokenSelectorBottomSheet(
                                 tokens[index]?.let { token ->
                                     TokenListItem(
                                         token = token,
-                                        onClick = { onTokenSelected(token) }
+                                        onClick = {
+                                            timber.log.Timber.d("TokenSelector: clicked index=$index token=${token.symbol} address=${token.address}")
+                                            onTokenSelected(token)
+                                        }
                                     )
                                     if (index < tokens.itemCount - 1) {
                                         HorizontalDivider(
