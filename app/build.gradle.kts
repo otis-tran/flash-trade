@@ -7,8 +7,6 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.google.services)
-    alias(libs.plugins.firebase.crashlytics)
 }
 
 // Load from local.properties
@@ -259,10 +257,7 @@ dependencies {
     // Logging
     implementation(libs.timber)
 
-    // Firebase - Crash reporting
-//    implementation(platform(libs.firebase.bom))
-//    implementation(libs.firebase.crashlytics)
-//    implementation(libs.firebase.analytics)
+
 
     // Camera for scanning (disabled - app only generates QR codes)
     // implementation(libs.androidx.camera.camera2)
