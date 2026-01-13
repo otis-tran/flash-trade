@@ -6,8 +6,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 
 /**
- * Utility for generating QR codes from wallet addresses.
- * Uses ZXing library for lightweight QR code generation.
+ * Generates QR codes for wallet addresses using EIP-831 format.
  */
 object QRCodeGenerator {
 
@@ -15,59 +14,25 @@ object QRCodeGenerator {
 
     /**
      * Generate QR code bitmap from wallet address.
+     *
      * @param address Ethereum wallet address (0x...)
      * @param size QR code size in pixels (default 512)
-     * @param chainId Optional chain ID for EIP-681 format
+     * @return Bitmap containing the QR code
      */
-    fun generateQRCode(
-        address: String,
-        size: Int = DEFAULT_SIZE,
-        chainId: Long? = null  // Kept for API compatibility but ignored
-    ): Bitmap {
-        // Use EIP-831 format (ethereum:address) - widely supported by MetaMask, Binance, etc.
-        // Note: EIP-681 format (ethereum:address@chainId) is NOT supported by most wallets
+    fun generateQRCode(address: String, size: Int = DEFAULT_SIZE): Bitmap {
         val content = "ethereum:$address"
 
         val writer = QRCodeWriter()
-        val bitMatrix = writer.encode(
-            content,
-            BarcodeFormat.QR_CODE,
-            size,
-            size
-        )
+        val bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, size, size)
 
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
         for (x in 0 until size) {
             for (y in 0 until size) {
-                bitmap.setPixel(
-                    x,
-                    y,
-                    if (bitMatrix[x, y]) Color.BLACK else Color.WHITE
-                )
+                bitmap.setPixel(x, y, if (bitMatrix[x, y]) Color.BLACK else Color.WHITE)
             }
         }
 
         return bitmap
     }
-
-    /**
-     * Validate Ethereum address format (basic checksum validation).
-     */
-    fun isValidEthereumAddress(address: String): Boolean {
-        return address.matches(Regex("^0x[a-fA-F0-9]{40}$"))
-    }
-
-    /**
-     * Extract address from EIP-681 format or plain address.
-     */
-    fun extractAddress(qrContent: String): String {
-        return when {
-            qrContent.startsWith("ethereum:") -> {
-                qrContent.removePrefix("ethereum:")
-                    .substringBefore("@")  // Remove chain ID
-                    .substringBefore("?")  // Remove query params
-            }
-            else -> qrContent
-        }
-    }
 }
+

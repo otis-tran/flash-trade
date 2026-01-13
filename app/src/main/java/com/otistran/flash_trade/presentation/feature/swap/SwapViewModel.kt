@@ -31,6 +31,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -76,13 +77,9 @@ class SwapViewModel @Inject constructor(
     val tokensFlow: Flow<PagingData<Token>> = combine(
         searchQueryFlow,
         state.map { it.showSafeTokensOnly }.distinctUntilChanged()
-    ) { query, safeOnly -> 
-        Timber.d("tokensFlow: combine triggered - query='$query', safeOnly=$safeOnly")
-        query to safeOnly 
-    }
+    ) { query, safeOnly -> query to safeOnly }
         .debounce(300)
         .flatMapLatest { (query, safeOnly) ->
-            Timber.d("tokensFlow: flatMapLatest - query='$query', safeOnly=$safeOnly, network=$currentNetwork")
             searchTokensUseCase(query, safeOnly, currentNetwork)
         }
         .cachedIn(viewModelScope)
@@ -98,6 +95,7 @@ class SwapViewModel @Inject constructor(
 
     private fun observeCountdown() {
         viewModelScope.launch {
+            // StateFlow is already conflated by design - no need for explicit conflate()
             countdownManager.secondsRemaining.collect { seconds ->
                 setState { copy(quoteExpiresInSeconds = seconds) }
             }
@@ -141,7 +139,6 @@ class SwapViewModel @Inject constructor(
     // ==================== Token Selection ====================
 
     private fun openTokenSelector(isSellToken: Boolean) {
-        Timber.d("openTokenSelector: isSellToken=$isSellToken, currentNetwork=$currentNetwork")
         searchQueryFlow.value = ""
         setState {
             copy(
@@ -157,7 +154,6 @@ class SwapViewModel @Inject constructor(
     }
 
     private fun selectToken(token: SwapToken, isSellToken: Boolean) {
-        Timber.d("selectToken: ${if (isSellToken) "SELL" else "BUY"} token=${token.symbol} address=${token.address} decimals=${token.decimals}")
         countdownManager.stop()
         setState {
             if (isSellToken) {
@@ -276,14 +272,12 @@ class SwapViewModel @Inject constructor(
     // ==================== Token Data (Balance & Prices) ====================
 
     private fun refreshTokenData() {
-        Timber.d("refreshTokenData() called")
         setState { copy(isPricesLoading = true) }
         tokenDataManager.fetchTokenData(
             sellToken = currentState.sellToken,
             buyToken = currentState.buyToken,
             network = currentNetwork
         ) { result ->
-            Timber.d("refreshTokenData() called with: result = $result")
             setState {
                 copy(
                     isPricesLoading = false,
@@ -338,8 +332,6 @@ class SwapViewModel @Inject constructor(
     private fun executeSwap() {
         if (!currentState.canSwap) return
 
-        Timber.d("Starting swap execution")
-
         viewModelScope.launch {
             setState { copy(isExecuting = true, error = null) }
 
@@ -358,10 +350,16 @@ class SwapViewModel @Inject constructor(
                 setState { copy(isExecuting = false, error = "Wallet not ready. Please wait and retry.") }
                 return@launch
             }
-            Timber.d("executeSwap: Using wallet ${wallet.address}")
 
-            val sellToken = currentState.sellToken!!
-            val buyToken = currentState.buyToken!!
+            // Validate tokens before proceeding
+            val sellToken = currentState.sellToken
+            val buyToken = currentState.buyToken
+            if (sellToken == null || buyToken == null) {
+                Timber.e("executeSwap: Tokens not selected (sell=$sellToken, buy=$buyToken)")
+                setState { copy(isExecuting = false, error = "Please select both tokens") }
+                return@launch
+            }
+
             val amountInWei = currentState.sellAmount.toBigDecimalOrNull()
                 ?.multiply(BigDecimal.TEN.pow(sellToken.decimals))
                 ?.toBigInteger() ?: return@launch

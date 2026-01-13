@@ -85,14 +85,15 @@ fun PortfolioScreen(
         }
 
         // QR Code Bottom Sheet
-        if (state.showQRSheet && state.walletAddress != null) {
-            ReceiveQRBottomSheet(
-                address = state.walletAddress!!,
-                chainId = state.currentNetwork.chainId,
-                networkName = state.currentNetwork.symbol,
-                onDismiss = { viewModel.onEvent(PortfolioEvent.HideQRSheet) },
-                onCopyAddress = { viewModel.onEvent(PortfolioEvent.CopyWalletAddress) }
-            )
+        state.walletAddress?.let { address ->
+            if (state.showQRSheet) {
+                ReceiveQRBottomSheet(
+                    address = address,
+                    networkName = state.currentNetwork.symbol,
+                    onDismiss = { viewModel.onEvent(PortfolioEvent.HideQRSheet) },
+                    onCopyAddress = { viewModel.onEvent(PortfolioEvent.CopyWalletAddress) }
+                )
+            }
         }
     }
 }
@@ -156,7 +157,6 @@ private fun HomeContent(
 @Composable
 private fun ReceiveQRBottomSheet(
     address: String,
-    chainId: Long,
     networkName: String,
     onDismiss: () -> Unit,
     onCopyAddress: () -> Unit
@@ -165,11 +165,10 @@ private fun ReceiveQRBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        dragHandle = {}  // Hide drag handle for cleaner look
+        dragHandle = {}
     ) {
         QRCodeView(
             address = address,
-            chainId = chainId,
             networkName = networkName,
             onCopyAddress = onCopyAddress
         )

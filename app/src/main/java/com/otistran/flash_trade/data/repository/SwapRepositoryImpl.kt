@@ -73,11 +73,12 @@ class SwapRepositoryImpl @Inject constructor(
                 amountIn = amountIn.toString()
             )
 
-            if (response.code != 0 || response.data?.routeSummary == null) {
+            if (response.code != 0) {
                 return Result.Error(response.message ?: "No route found")
             }
 
-            val summary = response.data.routeSummary!!
+            val summary = response.data?.routeSummary
+                ?: return Result.Error("No route found")
 
             // Parse amounts
             val amtIn = BigDecimal(summary.amountIn ?: "0")

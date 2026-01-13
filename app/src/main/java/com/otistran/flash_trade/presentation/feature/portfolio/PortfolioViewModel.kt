@@ -156,7 +156,6 @@ class PortfolioViewModel @Inject constructor(
         address: String,
         network: NetworkMode
     ) {
-        Timber.d("loadWalletData() START - address=$address, network=$network")
         try {
             // Fetch tokens
             val tokensResult = coroutineScope {
@@ -168,7 +167,6 @@ class PortfolioViewModel @Inject constructor(
             when (tokensResult) {
                 is Result.Success -> {
                     val data = tokensResult.data
-                    Timber.d("Tokens: ${data.tokens.size}, Total: $${data.totalBalanceUsd}")
                     val mergedTokens = mergeTokensWithPurchases(data.tokens)
                     setState {
                         copy(
@@ -232,10 +230,9 @@ class PortfolioViewModel @Inject constructor(
 
     private fun copyWalletAddress() {
         currentState.displayAddress?.let { address ->
-            Timber.d("copyWalletAddress() - copying: $address")
             viewModelScope.launch {
                 setEffect(PortfolioEffect.CopyToClipboard(address))
             }
-        } ?: Timber.w("copyWalletAddress() - no address to copy")
+        }
     }
 }

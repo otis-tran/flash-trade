@@ -255,14 +255,12 @@ fun AutoSellSettingsSection(
                             onDone = { submitCustomInput() }
                         ),
                         supportingText = {
-                            if (inputError != null) {
+                            inputError?.let { error ->
                                 Text(
-                                    text = inputError!!,
+                                    text = error,
                                     color = MaterialTheme.colorScheme.error
                                 )
-                            } else {
-                                Text("1-1440 minutes (max 24h)")
-                            }
+                            } ?: Text("1-1440 minutes (max 24h)")
                         },
                         colors = OutlinedTextFieldDefaults.colors(
                             errorBorderColor = MaterialTheme.colorScheme.error,
