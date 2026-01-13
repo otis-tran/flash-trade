@@ -34,17 +34,12 @@ import com.otistran.flash_trade.core.util.QRCodeGenerator
 @Composable
 fun QRCodeView(
     address: String,
-    chainId: Long,
     networkName: String,
     onCopyAddress: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val qrBitmap = remember(address, chainId) {
-        QRCodeGenerator.generateQRCode(
-            address = address,
-            size = 512,
-            chainId = chainId
-        )
+    val qrBitmap = remember(address) {
+        QRCodeGenerator.generateQRCode(address = address, size = 512)
     }
 
     Column(

@@ -1,6 +1,5 @@
 package com.otistran.flash_trade.di.network
 
-import com.otistran.flash_trade.core.network.ApiService
 import com.otistran.flash_trade.data.remote.api.AlchemyDataApiService
 import com.otistran.flash_trade.data.remote.api.AlchemyPriceApiService
 import com.otistran.flash_trade.data.remote.api.EtherscanApiService
@@ -21,7 +20,6 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object RetrofitModule {
 
-    private const val BASE_URL = "https://api.example.com/"
     private const val KYBER_MAINNET_URL = "https://kd-market-service-api.kyberengineering.io/ethereum/"
     private const val KYBER_AGGREGATOR_URL = "https://aggregator-api.kyberswap.com/"
     private const val ETHERSCAN_API_URL = "https://api.etherscan.io/"
@@ -33,20 +31,6 @@ object RetrofitModule {
     fun provideMoshi(): Moshi = Moshi.Builder()
         .addLast(KotlinJsonAdapterFactory())
         .build()
-
-    @Provides
-    @Singleton
-    fun provideDefaultRetrofit(okHttpClient: OkHttpClient, moshi: Moshi): Retrofit {
-        return Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .client(okHttpClient)
-            .addConverterFactory(MoshiConverterFactory.create(moshi))
-            .build()
-    }
-
-    @Provides
-    @Singleton
-    fun provideApiService(retrofit: Retrofit): ApiService = retrofit.create(ApiService::class.java)
 
     @Provides
     @Singleton

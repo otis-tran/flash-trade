@@ -9,24 +9,28 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Service to sign EIP-2612 permit messages for gasless token approvals.
- * Creates EIP-712 typed data and signs using Privy wallet.
+ * Signs EIP-2612 permit messages for gasless token approvals.
+ *
+ * Enables single-transaction swaps by bundling approval signature with swap calldata,
+ * eliminating the need for a separate approval transaction.
+ *
+ * @see <a href="https://eips.ethereum.org/EIPS/eip-2612">EIP-2612</a>
  */
 @Singleton
 class PermitSignatureService @Inject constructor(
     private val tokenCapabilityService: TokenCapabilityService
 ) {
     /**
-     * Sign an EIP-2612 permit for gasless token approval.
+     * Signs an EIP-2612 permit for gasless token approval.
      *
      * @param tokenAddress Token contract address
-     * @param owner User wallet address (permit signer)
-     * @param spender Router address (permit beneficiary)
+     * @param owner Wallet address signing the permit
+     * @param spender Router address authorized to spend tokens
      * @param value Amount to approve
-     * @param deadline Unix timestamp for permit expiration
+     * @param deadline Unix timestamp when permit expires
      * @param wallet Privy wallet for signing
-     * @param chainId Chain ID
-     * @return Encoded permit calldata for KyberSwap API, or error
+     * @param chainId Network chain ID
+     * @return ABI-encoded permit calldata for KyberSwap API
      */
     suspend fun signPermit(
         tokenAddress: String,
@@ -40,17 +44,14 @@ class PermitSignatureService @Inject constructor(
         return try {
             Timber.d("Signing permit for token $tokenAddress, spender $spender")
 
-            // Get token name for EIP-712 domain
             val tokenName = tokenCapabilityService.getTokenName(tokenAddress, chainId)
                 ?: return Result.failure(Exception("Failed to get token name"))
 
-            // Get permit nonce for owner
             val nonce = tokenCapabilityService.getPermitNonce(tokenAddress, owner, chainId)
                 ?: return Result.failure(Exception("Failed to get permit nonce"))
 
             Timber.d("Token: $tokenName, nonce: $nonce")
 
-            // Build EIP-712 typed data
             val typedData = buildTypedData(
                 tokenName = tokenName,
                 tokenAddress = tokenAddress,
@@ -64,7 +65,6 @@ class PermitSignatureService @Inject constructor(
 
             Timber.d("Typed data: $typedData")
 
-            // Sign using Privy wallet (eth_signTypedData_v4)
             val request = EthereumRpcRequest.ethSignTypedDataV4(owner, typedData)
             val signResult = wallet.provider.request(request)
 
@@ -75,7 +75,6 @@ class PermitSignatureService @Inject constructor(
 
             Timber.d("Permit signed: $signature")
 
-            // Parse r, s, v from signature
             val sigBytes = signature.removePrefix("0x")
             if (sigBytes.length != 130) {
                 return Result.failure(Exception("Invalid signature length: ${sigBytes.length}"))
@@ -85,16 +84,7 @@ class PermitSignatureService @Inject constructor(
             val s = sigBytes.substring(64, 128)
             val v = sigBytes.substring(128, 130).toInt(16)
 
-            // Encode permit calldata for KyberSwap
-            val permitCalldata = encodePermitCalldata(
-                owner = owner,
-                spender = spender,
-                value = value,
-                deadline = deadline,
-                v = v,
-                r = r,
-                s = s
-            )
+            val permitCalldata = encodePermitCalldata(owner, spender, value, deadline, v, r, s)
 
             Timber.i("Permit calldata encoded successfully")
             Result.success(permitCalldata)
@@ -106,7 +96,10 @@ class PermitSignatureService @Inject constructor(
     }
 
     /**
-     * Build EIP-712 typed data JSON for permit.
+     * Builds EIP-712 typed data JSON for permit signing.
+     *
+     * Note: Privy SDK requires snake_case keys (primary_type, chain_id, verifying_contract).
+     * Default version "1" works for most tokens; DAI uses version "2".
      */
     private fun buildTypedData(
         tokenName: String,
@@ -117,17 +110,14 @@ class PermitSignatureService @Inject constructor(
         value: BigInteger,
         nonce: BigInteger,
         deadline: Long
-    ): String {
-        // Note: Some tokens use version "2" (like DAI on mainnet)
-        // We default to "1" which works for most tokens (USDC, etc.)
-        return """
+    ): String = """
         {
             "types": {
                 "EIP712Domain": [
                     {"name": "name", "type": "string"},
                     {"name": "version", "type": "string"},
-                    {"name": "chainId", "type": "uint256"},
-                    {"name": "verifyingContract", "type": "address"}
+                    {"name": "chain_id", "type": "uint256"},
+                    {"name": "verifying_contract", "type": "address"}
                 ],
                 "Permit": [
                     {"name": "owner", "type": "address"},
@@ -137,12 +127,12 @@ class PermitSignatureService @Inject constructor(
                     {"name": "deadline", "type": "uint256"}
                 ]
             },
-            "primaryType": "Permit",
+            "primary_type": "Permit",
             "domain": {
                 "name": "$tokenName",
                 "version": "1",
-                "chainId": $chainId,
-                "verifyingContract": "$tokenAddress"
+                "chain_id": $chainId,
+                "verifying_contract": "$tokenAddress"
             },
             "message": {
                 "owner": "$owner",
@@ -153,11 +143,12 @@ class PermitSignatureService @Inject constructor(
             }
         }
         """.trimIndent()
-    }
 
     /**
-     * Encode permit parameters for KyberSwap API.
-     * Format: owner + spender + value + deadline + v + r + s (all padded to 32 bytes)
+     * ABI-encodes permit parameters for KyberSwap API (without function selector).
+     *
+     * Format: encode([address, address, uint256, uint256, uint8, bytes32, bytes32],
+     *                [owner, spender, value, deadline, v, r, s])
      */
     private fun encodePermitCalldata(
         owner: String,
@@ -176,6 +167,7 @@ class PermitSignatureService @Inject constructor(
         val rPadded = r.lowercase().padStart(64, '0')
         val sPadded = s.lowercase().padStart(64, '0')
 
-        return "$ownerPadded$spenderPadded$valuePadded$deadlinePadded$vPadded$rPadded$sPadded"
+        return "0x$ownerPadded$spenderPadded$valuePadded$deadlinePadded$vPadded$rPadded$sPadded"
     }
 }
+

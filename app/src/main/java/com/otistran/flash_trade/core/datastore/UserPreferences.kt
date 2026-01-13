@@ -6,10 +6,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.core.emptyPreferences
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.otistran.flash_trade.domain.model.User
 import com.otistran.flash_trade.domain.model.UserAuthState
@@ -27,35 +26,21 @@ class UserPreferences @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private object Keys {
-        val IS_ONBOARDED = booleanPreferencesKey("is_onboarded")
-        val BIOMETRIC_ENABLED = booleanPreferencesKey("biometric_enabled")
-        val SELECTED_CHAIN_ID = intPreferencesKey("selected_chain_id")
         val AUTO_SELL_ENABLED = booleanPreferencesKey("auto_sell_enabled")
         val AUTO_SELL_DURATION_MINUTES = intPreferencesKey("auto_sell_duration_minutes")
         val USER_ID = stringPreferencesKey("user_id")
         val WALLET_ADDRESS = stringPreferencesKey("wallet_address")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val NETWORK_MODE = stringPreferencesKey("network_mode")
-
-        // Auth
         val IS_LOGGED_IN = booleanPreferencesKey("is_logged_in")
         val AUTH_TOKEN = stringPreferencesKey("auth_token")
         val USER_EMAIL = stringPreferencesKey("user_email")
         val DISPLAY_NAME = stringPreferencesKey("display_name")
         val LOGIN_TIMESTAMP = longPreferencesKey("login_timestamp")
-
-        // Portfolio balance cache (Ethereum only)
-        val ETH_BALANCE_ETHEREUM = stringPreferencesKey("eth_balance_ethereum")
-        val BALANCE_CACHE_TS_ETHEREUM = longPreferencesKey("balance_cache_ts_ethereum")
-
-        // Swap settings
         val DEFAULT_SLIPPAGE = doublePreferencesKey("default_slippage")
     }
 
-    val isOnboarded: Flow<Boolean> = context.dataStore.data.map { it[Keys.IS_ONBOARDED] ?: false }
-    val biometricEnabled: Flow<Boolean> =
-        context.dataStore.data.map { it[Keys.BIOMETRIC_ENABLED] ?: false }
-    val selectedChainId: Flow<Int> = context.dataStore.data.map { it[Keys.SELECTED_CHAIN_ID] ?: 1 }
+
     val autoSellEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[Keys.AUTO_SELL_ENABLED] ?: true }
     val autoSellDurationMinutes: Flow<Int> =
@@ -63,7 +48,8 @@ class UserPreferences @Inject constructor(
     val userId: Flow<String?> = context.dataStore.data.map { it[Keys.USER_ID] }
     val walletAddress: Flow<String?> = context.dataStore.data.map { it[Keys.WALLET_ADDRESS] }
     val themeMode: Flow<String> = context.dataStore.data.map { it[Keys.THEME_MODE] ?: "DARK" }
-    val networkMode: Flow<String> = context.dataStore.data.map { it[Keys.NETWORK_MODE] ?: "ETHEREUM" }
+    val networkMode: Flow<String> =
+        context.dataStore.data.map { it[Keys.NETWORK_MODE] ?: "ETHEREUM" }
 
     // Auth
     val isLoggedIn: Flow<Boolean> = context.dataStore.data.map { it[Keys.IS_LOGGED_IN] ?: false }
@@ -110,17 +96,7 @@ class UserPreferences @Inject constructor(
         }
     }
 
-    suspend fun setOnboarded(value: Boolean) {
-        context.dataStore.edit { it[Keys.IS_ONBOARDED] = value }
-    }
 
-    suspend fun setBiometricEnabled(value: Boolean) {
-        context.dataStore.edit { it[Keys.BIOMETRIC_ENABLED] = value }
-    }
-
-    suspend fun setSelectedChainId(chainId: Int) {
-        context.dataStore.edit { it[Keys.SELECTED_CHAIN_ID] = chainId }
-    }
 
     suspend fun setAutoSellEnabled(value: Boolean) {
         context.dataStore.edit { it[Keys.AUTO_SELL_ENABLED] = value }
@@ -155,7 +131,8 @@ class UserPreferences @Inject constructor(
     }
 
     suspend fun getDefaultSlippage(): Double {
-        return context.dataStore.data.first()[Keys.DEFAULT_SLIPPAGE] ?: 5.0 // 5% default for meme coins
+        return context.dataStore.data.first()[Keys.DEFAULT_SLIPPAGE]
+            ?: 5.0 // 5% default for meme coins
     }
 
     suspend fun setDefaultSlippage(slippage: Double) {
@@ -166,59 +143,4 @@ class UserPreferences @Inject constructor(
         context.dataStore.edit { it.clear() }
     }
 
-    // ==================== Portfolio Balance Cache ====================
-
-    /**
-     * Cache ETH balance for specific network.
-     */
-    suspend fun cacheBalance(chainId: Long, balance: Double) {
-        context.dataStore.edit { prefs ->
-            val balanceKey = getBalanceKey(chainId)
-            val timestampKey = getBalanceTimestampKey(chainId)
-
-            prefs[balanceKey] = balance.toString()
-            prefs[timestampKey] = System.currentTimeMillis()
-        }
-    }
-
-    /**
-     * Get cached balance for specific network.
-     * Returns null if not cached.
-     */
-    suspend fun getCachedBalance(chainId: Long): CachedBalance? {
-        val prefs = context.dataStore.data.first()
-        val balanceKey = getBalanceKey(chainId)
-        val timestampKey = getBalanceTimestampKey(chainId)
-
-        val balance = prefs[balanceKey]?.toDoubleOrNull() ?: return null
-        val timestamp = prefs[timestampKey] ?: return null
-
-        return CachedBalance(balance, timestamp)
-    }
-
-    private fun getBalanceKey(chainId: Long): Preferences.Key<String> {
-        if (chainId != 1L) {
-            throw IllegalArgumentException("Only Ethereum (chainId=1) is supported")
-        }
-        return Keys.ETH_BALANCE_ETHEREUM
-    }
-
-    private fun getBalanceTimestampKey(chainId: Long): Preferences.Key<Long> {
-        if (chainId != 1L) {
-            throw IllegalArgumentException("Only Ethereum (chainId=1) is supported")
-        }
-        return Keys.BALANCE_CACHE_TS_ETHEREUM
-    }
-}
-
-/**
- * Cached balance with timestamp for TTL validation.
- */
-data class CachedBalance(val balance: Double, val timestamp: Long) {
-    /**
-     * Check if cache is still valid within TTL.
-     */
-    fun isValid(ttlMs: Long): Boolean {
-        return System.currentTimeMillis() - timestamp < ttlMs
-    }
 }

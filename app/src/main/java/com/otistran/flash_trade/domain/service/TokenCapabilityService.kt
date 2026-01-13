@@ -18,18 +18,17 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** EIP-2612 DOMAIN_SEPARATOR() selector */
 private const val DOMAIN_SEPARATOR_SELECTOR = "0x3644e515"
-
-/** EIP-2612 nonces(address) selector */
 private const val NONCES_SELECTOR = "0x7ecebe00"
-
-/** ERC20 name() selector */
 private const val NAME_SELECTOR = "0x06fdde03"
 
 /**
- * Service to detect token capabilities like EIP-2612 permit support.
- * Results are cached to minimize RPC calls.
+ * Detects EIP-2612 permit support for tokens via RPC calls.
+ *
+ * Results are cached to minimize network overhead. Detection works by calling
+ * DOMAIN_SEPARATOR() on the token contract - a valid 32-byte response indicates support.
+ *
+ * @see <a href="https://eips.ethereum.org/EIPS/eip-2612">EIP-2612</a>
  */
 @Singleton
 class TokenCapabilityService @Inject constructor() {
@@ -41,25 +40,18 @@ class TokenCapabilityService @Inject constructor() {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** Cache for EIP-2612 support detection (key: chainId:tokenAddress) */
     private val eip2612Cache = ConcurrentHashMap<String, Boolean>()
-
-    /** Cache for token names (key: chainId:tokenAddress) */
     private val tokenNameCache = ConcurrentHashMap<String, String>()
 
     /**
-     * Check if token supports EIP-2612 permit.
-     * Detection is done by calling DOMAIN_SEPARATOR() - if it returns
-     * a non-empty 32-byte value, the token likely supports permit.
+     * Checks if a token supports EIP-2612 permit.
      *
      * @param tokenAddress Token contract address
-     * @param chainId Chain ID
-     * @return true if token supports EIP-2612 permit
+     * @param chainId Network chain ID
+     * @return true if token supports gasless permit approvals
      */
     suspend fun supportsEIP2612(tokenAddress: String, chainId: Long): Boolean {
         val cacheKey = "$chainId:$tokenAddress"
-
-        // Return cached result if available
         eip2612Cache[cacheKey]?.let { return it }
 
         return withContext(Dispatchers.IO) {
@@ -67,15 +59,12 @@ class TokenCapabilityService @Inject constructor() {
                 val rpcUrl = NetworkMode.fromChainId(chainId).rpcUrl
                 val result = callDomainSeparator(tokenAddress, rpcUrl)
 
-                // EIP-2612 tokens return 32-byte DOMAIN_SEPARATOR
-                val supportsPermit = result != null && 
-                    result.length >= 66 && // 0x + 64 hex chars = 32 bytes
-                    result != "0x" && 
+                val supportsPermit = result != null &&
+                    result.length >= 66 &&
+                    result != "0x" &&
                     result != "0x0000000000000000000000000000000000000000000000000000000000000000"
 
                 Timber.d("Token $tokenAddress supportsEIP2612: $supportsPermit")
-
-                // Cache result
                 eip2612Cache[cacheKey] = supportsPermit
                 supportsPermit
 
@@ -88,13 +77,12 @@ class TokenCapabilityService @Inject constructor() {
     }
 
     /**
-     * Get permit nonce for an address.
-     * Required for EIP-2612 permit signing.
+     * Gets the permit nonce for a wallet address.
      *
      * @param tokenAddress Token contract address
-     * @param owner User wallet address
-     * @param chainId Chain ID
-     * @return Current nonce, or null if not supported
+     * @param owner Wallet address
+     * @param chainId Network chain ID
+     * @return Current nonce, or null if unavailable
      */
     suspend fun getPermitNonce(
         tokenAddress: String,
@@ -103,8 +91,6 @@ class TokenCapabilityService @Inject constructor() {
     ): BigInteger? = withContext(Dispatchers.IO) {
         try {
             val rpcUrl = NetworkMode.fromChainId(chainId).rpcUrl
-
-            // Encode nonces(address): selector + address padded to 32 bytes
             val ownerPadded = owner.removePrefix("0x").padStart(64, '0')
             val calldata = "$NONCES_SELECTOR$ownerPadded"
 
@@ -128,16 +114,14 @@ class TokenCapabilityService @Inject constructor() {
     }
 
     /**
-     * Get token name (used for EIP-712 domain).
+     * Gets the token name for EIP-712 domain construction.
      *
      * @param tokenAddress Token contract address
-     * @param chainId Chain ID
-     * @return Token name, or null if not available
+     * @param chainId Network chain ID
+     * @return Token name, or null if unavailable
      */
     suspend fun getTokenName(tokenAddress: String, chainId: Long): String? {
         val cacheKey = "$chainId:$tokenAddress"
-
-        // Return cached result if available
         tokenNameCache[cacheKey]?.let { return it }
 
         return withContext(Dispatchers.IO) {
@@ -151,7 +135,6 @@ class TokenCapabilityService @Inject constructor() {
                 val result = executeRpcCall(requestBody, rpcUrl)
 
                 if (result != null && result.startsWith("0x") && result.length > 130) {
-                    // ABI decode string: first 32 bytes = offset, next 32 bytes = length, then data
                     val data = result.removePrefix("0x")
                     val length = BigInteger(data.substring(64, 128), 16).toInt()
                     val nameHex = data.substring(128, 128 + length * 2)
@@ -171,9 +154,6 @@ class TokenCapabilityService @Inject constructor() {
         }
     }
 
-    /**
-     * Call DOMAIN_SEPARATOR() on token contract.
-     */
     private fun callDomainSeparator(tokenAddress: String, rpcUrl: String): String? {
         val requestBody = """
             {"jsonrpc":"2.0","method":"eth_call","params":[{"to":"$tokenAddress","data":"$DOMAIN_SEPARATOR_SELECTOR"},"latest"],"id":1}
@@ -182,9 +162,6 @@ class TokenCapabilityService @Inject constructor() {
         return executeRpcCall(requestBody, rpcUrl)
     }
 
-    /**
-     * Execute RPC call and return raw hex result.
-     */
     private fun executeRpcCall(requestBody: String, rpcUrl: String): String? {
         return try {
             val request = Request.Builder()
@@ -200,8 +177,7 @@ class TokenCapabilityService @Inject constructor() {
                 return null
             }
 
-            val jsonResponse = json.parseToJsonElement(responseBody)
-            jsonResponse.jsonObject["result"]?.jsonPrimitive?.content
+            json.parseToJsonElement(responseBody).jsonObject["result"]?.jsonPrimitive?.content
 
         } catch (e: IOException) {
             Timber.e("Network error in RPC call", e)
@@ -209,3 +185,4 @@ class TokenCapabilityService @Inject constructor() {
         }
     }
 }
+

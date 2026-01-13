@@ -54,9 +54,7 @@ fun TokenHoldingItem(
     network: NetworkMode
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {

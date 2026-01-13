@@ -8,48 +8,43 @@ import timber.log.Timber
 import java.math.BigInteger
 import javax.inject.Inject
 
-/**
- * Result of approval determination.
- */
+/** Result of token approval strategy execution. */
 sealed class ApprovalResult {
-    /** No approval needed (native token) */
     data object NotRequired : ApprovalResult()
-
-    /** EIP-2612 permit available */
     data class Permit(val calldata: String, val deadline: Long) : ApprovalResult()
-
-    /** Traditional approval required, and it was sent */
     data object TraditionalApprovalSent : ApprovalResult()
-
-    /** Already has sufficient allowance */
     data object AlreadyApproved : ApprovalResult()
-
-    /** Error occurred */
     data class Error(val message: String) : ApprovalResult()
 }
 
 /**
- * Step 2: Token approval strategy
- * - Skip for native tokens
- * - Try EIP-2612 permit for supported tokens
- * - Fall back to traditional approval
+ * Determines and executes the optimal token approval strategy.
+ *
+ * Priority order:
+ * 1. Skip for native tokens (ETH)
+ * 2. Use EIP-2612 permit for supported tokens (gasless)
+ * 3. Fall back to traditional approval transaction
  */
 class ApprovalStep @Inject constructor(
     private val erc20Repository: Erc20Repository,
     private val tokenCapabilityService: TokenCapabilityService,
     private val permitSignatureService: PermitSignatureService
 ) {
+    companion object {
+        private const val PERMIT_VALIDITY_SECONDS = 1800L // 30 minutes
+    }
+
     /**
-     * Determine and execute approval strategy.
+     * Executes the approval strategy for a token swap.
      *
-     * @param tokenAddress Token to approve
-     * @param tokenSymbol Token symbol (for logging)
+     * @param tokenAddress Token contract address
+     * @param tokenSymbol Token symbol for logging
      * @param userAddress User wallet address
-     * @param spenderAddress Router address
+     * @param spenderAddress Router address to approve
      * @param amount Amount to approve
      * @param wallet Privy wallet for signing
-     * @param chainId Chain ID
-     * @return ApprovalResult indicating what action was taken
+     * @param chainId Network chain ID
+     * @return Result indicating the approval action taken
      */
     suspend fun execute(
         tokenAddress: String,
@@ -60,39 +55,21 @@ class ApprovalStep @Inject constructor(
         wallet: EmbeddedEthereumWallet,
         chainId: Long
     ): ApprovalResult {
-        // Check if native token
         if (erc20Repository.isNativeToken(tokenAddress)) {
             Timber.d("Native token, no approval needed")
             return ApprovalResult.NotRequired
         }
 
-        // Try EIP-2612 permit first
         val supportsPermit = tokenCapabilityService.supportsEIP2612(tokenAddress, chainId)
         Timber.d("Token $tokenSymbol supportsPermit: $supportsPermit")
 
         if (supportsPermit) {
-            val permit = trySignPermit(
-                tokenAddress = tokenAddress,
-                userAddress = userAddress,
-                spenderAddress = spenderAddress,
-                amount = amount,
-                wallet = wallet,
-                chainId = chainId
-            )
-            if (permit != null) {
-                return permit
-            }
+            trySignPermit(tokenAddress, userAddress, spenderAddress, amount, wallet, chainId)
+                ?.let { return it }
             Timber.w("Permit failed, falling back to traditional approval")
         }
 
-        // Traditional approval flow
-        return executeTraditionalApproval(
-            tokenAddress = tokenAddress,
-            userAddress = userAddress,
-            spenderAddress = spenderAddress,
-            amount = amount,
-            chainId = chainId
-        )
+        return executeTraditionalApproval(tokenAddress, userAddress, spenderAddress, amount, chainId)
     }
 
     private suspend fun trySignPermit(
@@ -103,7 +80,7 @@ class ApprovalStep @Inject constructor(
         wallet: EmbeddedEthereumWallet,
         chainId: Long
     ): ApprovalResult.Permit? {
-        val deadline = System.currentTimeMillis() / 1000 + 1800 // 30 min
+        val deadline = System.currentTimeMillis() / 1000 + PERMIT_VALIDITY_SECONDS
 
         val result = permitSignatureService.signPermit(
             tokenAddress = tokenAddress,
@@ -116,9 +93,8 @@ class ApprovalStep @Inject constructor(
         )
 
         return if (result.isSuccess) {
-            val calldata = result.getOrNull()!!
             Timber.i("EIP-2612 permit signed successfully")
-            ApprovalResult.Permit(calldata, deadline)
+            ApprovalResult.Permit(result.getOrNull()!!, deadline)
         } else {
             Timber.w("Permit signing failed: ${result.exceptionOrNull()?.message}")
             null
@@ -132,7 +108,6 @@ class ApprovalStep @Inject constructor(
         amount: BigInteger,
         chainId: Long
     ): ApprovalResult {
-        // Check current allowance
         val allowanceResult = erc20Repository.getAllowance(
             tokenAddress = tokenAddress,
             owner = userAddress,
@@ -153,7 +128,6 @@ class ApprovalStep @Inject constructor(
             return ApprovalResult.AlreadyApproved
         }
 
-        // Send approval
         Timber.i("Requesting approval...")
         val approveResult = erc20Repository.approve(
             tokenAddress = tokenAddress,
@@ -171,3 +145,4 @@ class ApprovalStep @Inject constructor(
         return ApprovalResult.TraditionalApprovalSent
     }
 }
+

@@ -45,7 +45,6 @@ class TokenDataManager(
         network: NetworkMode,
         onResult: (TokenDataResult) -> Unit
     ) {
-        Timber.d("fetchTokenData() called with: sellToken = $sellToken, buyToken = $buyToken, network = $network, onResult = $onResult")
         coroutineScope.launch {
             val balancesDeferred = async {
                 getTokenBalancesUseCase(sellToken, buyToken, network)

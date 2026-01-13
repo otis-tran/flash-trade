@@ -27,6 +27,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,9 +49,9 @@ import com.otistran.flash_trade.presentation.feature.swap.components.SwapButton
 import com.otistran.flash_trade.presentation.feature.swap.components.SwapTriggerButton
 import com.otistran.flash_trade.presentation.feature.swap.components.TokenInputSection
 import com.otistran.flash_trade.presentation.feature.swap.components.TokenSelectorBottomSheet
+import timber.log.Timber
 
 private val ErrorRed = Color(0xFFFF5252)
-
 /**
  * Swap Screen - matches design doc Section 2.
  */
@@ -64,6 +66,39 @@ fun SwapScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val tokens = viewModel.tokensFlow.collectAsLazyPagingItems()
     val context = LocalContext.current
+
+    // ==================== Remembered Event Callbacks ====================
+    // Wrap callbacks in remember to prevent lambda allocation on every recomposition
+    
+    val onSellAmountChange = remember<(String) -> Unit> {
+        { viewModel.onEvent(SwapEvent.SetSellAmount(it)) }
+    }
+    
+    val onOpenSellTokenSelector = remember { { viewModel.onEvent(SwapEvent.OpenSellTokenSelector) } }
+    val onOpenBuyTokenSelector = remember { { viewModel.onEvent(SwapEvent.OpenBuyTokenSelector) } }
+    val onSwapTokens = remember { { viewModel.onEvent(SwapEvent.SwapTokens) } }
+    val onOpenSlippageDialog = remember { { viewModel.onEvent(SwapEvent.OpenSlippageDialog) } }
+    val onExecuteSwap = remember { { viewModel.onEvent(SwapEvent.ExecuteSwap) } }
+    val onNavigateBackEvent = remember { { viewModel.onEvent(SwapEvent.NavigateBack) } }
+    val onCancelEvent = remember { { viewModel.onEvent(SwapEvent.Cancel) } }
+    val onSearchTokens = remember<(String) -> Unit> { { viewModel.onEvent(SwapEvent.SearchTokens(it)) } }
+    val onCloseTokenSelector = remember { { viewModel.onEvent(SwapEvent.CloseTokenSelector) } }
+    val onToggleTokenFilter = remember { { viewModel.onEvent(SwapEvent.ToggleTokenFilter) } }
+    val onCloseSlippageDialog = remember { { viewModel.onEvent(SwapEvent.CloseSlippageDialog) } }
+    val onSlippageSelected = remember<(Double) -> Unit> { { viewModel.onEvent(SwapEvent.SetSlippage(it)) } }
+    
+    // Use rememberUpdatedState for state-dependent callback
+    val currentIsSelectingSellToken by rememberUpdatedState(state.isSelectingSellToken)
+    val onTokenSelected = remember<(com.otistran.flash_trade.domain.model.Token) -> Unit> {
+        { token ->
+            val swapToken = token.toSwapToken()
+            if (currentIsSelectingSellToken) {
+                viewModel.onEvent(SwapEvent.SelectSellToken(swapToken))
+            } else {
+                viewModel.onEvent(SwapEvent.SelectBuyToken(swapToken))
+            }
+        }
+    }
 
     // Refresh balances when screen becomes visible (e.g., after returning from tx details)
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -92,8 +127,8 @@ fun SwapScreen(
     Scaffold(
         topBar = {
             SwapTopBar(
-                onBack = { viewModel.onEvent(SwapEvent.NavigateBack) },
-                onCancel = { viewModel.onEvent(SwapEvent.Cancel) }
+                onBack = onNavigateBackEvent,
+                onCancel = onCancelEvent
             )
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -113,11 +148,11 @@ fun SwapScreen(
                 tokenPrice = state.sellTokenPrice,
                 isLoading = false,
                 maxSwapAmount = state.maxSwapAmount,
-                onAmountChange = { viewModel.onEvent(SwapEvent.SetSellAmount(it)) },
-                onTokenClick = { viewModel.onEvent(SwapEvent.OpenSellTokenSelector) }
+                onAmountChange = onSellAmountChange,
+                onTokenClick = onOpenSellTokenSelector
             )
 
-            SwapTriggerButton(onClick = { viewModel.onEvent(SwapEvent.SwapTokens) })
+            SwapTriggerButton(onClick = onSwapTokens)
 
             TokenInputSection(
                 label = "Buy",
@@ -128,7 +163,7 @@ fun SwapScreen(
                 isLoading = state.isLoadingQuote,
                 readOnly = true,
                 onAmountChange = { },
-                onTokenClick = { viewModel.onEvent(SwapEvent.OpenBuyTokenSelector) }
+                onTokenClick = onOpenBuyTokenSelector
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -140,7 +175,7 @@ fun SwapScreen(
                         networkFee = state.displayNetworkFee,
                         priceImpact = state.displayPriceImpact,
                         slippage = state.slippage,
-                        onSlippageClick = { viewModel.onEvent(SwapEvent.OpenSlippageDialog) }
+                        onSlippageClick = onOpenSlippageDialog
                     )
                     
                     QuoteCountdownIndicator(
@@ -151,10 +186,10 @@ fun SwapScreen(
                 }
             }
 
-            if (state.error != null) {
+            state.error?.let { errorMessage ->
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = state.error!!,
+                    text = errorMessage,
                     style = MaterialTheme.typography.bodySmall,
                     color = ErrorRed,
                     modifier = Modifier.padding(horizontal = 4.dp)
@@ -177,7 +212,7 @@ fun SwapScreen(
                 text = state.ctaButtonText,
                 enabled = state.ctaButtonEnabled,
                 isLoading = state.isExecuting,
-                onClick = { viewModel.onEvent(SwapEvent.ExecuteSwap) }
+                onClick = onExecuteSwap
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -189,30 +224,19 @@ fun SwapScreen(
         isVisible = state.showTokenSelector,
         tokens = tokens,
         searchQuery = state.tokenSearchQuery,
-        onSearchQueryChange = { viewModel.onEvent(SwapEvent.SearchTokens(it)) },
-        onTokenSelected = { token ->
-            timber.log.Timber.d("SwapScreen: Token selected from list - symbol=${token.symbol} address=${token.address} decimals=${token.decimals}")
-            val swapToken = token.toSwapToken()
-            timber.log.Timber.d("SwapScreen: Converted to SwapToken - symbol=${swapToken.symbol} address=${swapToken.address} decimals=${swapToken.decimals}")
-            if (state.isSelectingSellToken) {
-                viewModel.onEvent(SwapEvent.SelectSellToken(swapToken))
-            } else {
-                viewModel.onEvent(SwapEvent.SelectBuyToken(swapToken))
-            }
-        },
-        onDismiss = { viewModel.onEvent(SwapEvent.CloseTokenSelector) },
+        onSearchQueryChange = onSearchTokens,
+        onTokenSelected = onTokenSelected,
+        onDismiss = onCloseTokenSelector,
         showSafeTokensOnly = state.showSafeTokensOnly,
-        onToggleFilter = { viewModel.onEvent(SwapEvent.ToggleTokenFilter) }
+        onToggleFilter = onToggleTokenFilter
     )
 
     // Slippage Settings Dialog
     if (state.showSlippageDialog) {
         SlippageSettingsDialog(
             currentSlippage = state.slippage,
-            onSlippageSelected = { slippage ->
-                viewModel.onEvent(SwapEvent.SetSlippage(slippage))
-            },
-            onDismiss = { viewModel.onEvent(SwapEvent.CloseSlippageDialog) }
+            onSlippageSelected = onSlippageSelected,
+            onDismiss = onCloseSlippageDialog
         )
     }
 }

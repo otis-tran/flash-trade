@@ -137,12 +137,9 @@ fun TokenSelectorBottomSheet(
                 val isError = tokens.loadState.refresh is LoadState.Error
                 val isEmpty = tokens.itemCount == 0
 
-                Timber.d("TokenSelector state: isEmpty=$isEmpty, isRefreshing=$isRefreshing, isError=$isError, itemCount=${tokens.itemCount}")
-
                 when {
                     // Fresh install loading - show skeleton
                     isEmpty && isRefreshing -> {
-                        Timber.d("TokenSelector: showing skeleton (loading)")
                         TokenListSkeleton(
                             itemCount = 8,
                             modifier = Modifier
@@ -190,21 +187,19 @@ fun TokenSelectorBottomSheet(
 
                     // Normal state - show tokens immediately
                     else -> {
-                        Timber.d("Tokens count: ${tokens.itemCount}")
-                        Timber.d("Tokens: ${tokens}")
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(400.dp)
                         ) {
-                            items(count = tokens.itemCount) { index ->
+                            items(
+                                count = tokens.itemCount,
+                                key = { index -> tokens.peek(index)?.address ?: "item_$index" }
+                            ) { index ->
                                 tokens[index]?.let { token ->
                                     TokenListItem(
                                         token = token,
-                                        onClick = {
-                                            timber.log.Timber.d("TokenSelector: clicked index=$index token=${token.symbol} address=${token.address}")
-                                            onTokenSelected(token)
-                                        }
+                                        onClick = { onTokenSelected(token) }
                                     )
                                     if (index < tokens.itemCount - 1) {
                                         HorizontalDivider(
@@ -217,7 +212,7 @@ fun TokenSelectorBottomSheet(
 
                             // Loading more indicator
                             if (tokens.loadState.append is LoadState.Loading) {
-                                item {
+                                item(key = "loading_indicator") {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()

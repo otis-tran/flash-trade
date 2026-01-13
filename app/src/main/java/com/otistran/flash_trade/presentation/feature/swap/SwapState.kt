@@ -1,5 +1,6 @@
 package com.otistran.flash_trade.presentation.feature.swap
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import com.otistran.flash_trade.core.base.UiState
 import com.otistran.flash_trade.core.util.TokenConstants
@@ -139,6 +140,7 @@ data class SwapState(
  * Token representation for swap UI.
  */
 @Stable
+@Immutable
 data class SwapToken(
     val address: String,
     val symbol: String,

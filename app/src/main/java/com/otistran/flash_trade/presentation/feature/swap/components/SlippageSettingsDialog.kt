@@ -177,10 +177,10 @@ fun SlippageSettingsDialog(
                 }
 
                 // Error message
-                if (errorMessage != null) {
+                errorMessage?.let { error ->
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = errorMessage!!,
+                        text = error,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error
                     )
